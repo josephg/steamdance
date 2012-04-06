@@ -11,7 +11,7 @@ ws = new WebSocket 'ws://' + window.location.host
 ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
   if msg.delta
-    console.log msg.delta
+    #console.log msg.delta
     for k,v of msg.delta
       if v?
         grid[k] = v
@@ -34,7 +34,7 @@ colors =
 placing = 'nothing'
 document.onkeydown = (e) ->
   kc = e.keyCode
-  console.log kc
+  #console.log kc
   pressed = ({
     # 1-7
     49: 'nothing'
@@ -94,11 +94,10 @@ draw = ->
   mtx = Math.floor mouse.x/CELL_SIZE
   mty = Math.floor mouse.y/CELL_SIZE
 
-  ctx.globalAlpha = 0.5
-  ctx.fillStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.fillRect mtx*CELL_SIZE,mty*CELL_SIZE,CELL_SIZE,CELL_SIZE
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect mtx*CELL_SIZE+1,mty*CELL_SIZE+1,CELL_SIZE-2,CELL_SIZE-2
-  ctx.globalAlpha = 1
+  ctx.fillRect mtx*CELL_SIZE + CELL_SIZE/4, mty*CELL_SIZE + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
+
+  ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
+  ctx.strokeRect mtx*CELL_SIZE + 1,mty*CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2
 
   return
