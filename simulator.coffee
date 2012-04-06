@@ -16,8 +16,8 @@ fill = (initial_squares, f) ->
 	return
 
 class Simulator
-  constructor: ->
-    @grid = {}
+  constructor: (@grid) ->
+    @grid ||= {}
     @engines = {}
     @delta = {}
 
