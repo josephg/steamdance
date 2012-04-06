@@ -34,7 +34,15 @@ colors =
 placing = 'nothing'
 document.onkeydown = (e) ->
   kc = e.keyCode
-  #console.log kc
+  if kc == 37 # left
+    scroll_x -= 1
+  else if kc == 39 # right
+    scroll_x += 1
+  else if kc == 38 # up
+    scroll_y -= 1
+  else if kc == 40 # down
+    scroll_y += 1
+
   pressed = ({
     # 1-7
     49: 'nothing'
@@ -69,8 +77,8 @@ canvas.onclick = (e) ->
   stx = Math.floor mx / CELL_SIZE
   sty = Math.floor my / CELL_SIZE
 
-  tx = stx - scroll_x
-  ty = sty - scroll_y
+  tx = stx + scroll_x
+  ty = sty + scroll_y
   delta = {}
   delta[[tx,ty]] = placing
   ws.send JSON.stringify {delta}
