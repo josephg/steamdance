@@ -1,6 +1,7 @@
 #http = require 'http'
 
-redis = require 'redis'
+try
+  redis = require 'redis'
 express = require 'express'
 Simulator = require './simulator'
 app = express.createServer()
@@ -8,9 +9,7 @@ app = express.createServer()
 app.use express.static("#{__dirname}/")
 port = 8080
 
-db = redis.createClient()
-
-db.on 'ready', -> db.get 'boilerplate', (error, value) ->
+run = (error, value) ->
   value = JSON.parse value if value
   
   simulator = new Simulator value
@@ -23,7 +22,7 @@ db.on 'ready', -> db.get 'boilerplate', (error, value) ->
     delta = simulator.step()
     for k, v of delta
       # Update db
-      db.set 'boilerplate', JSON.stringify(simulator.grid)
+      db?.set 'boilerplate', JSON.stringify(simulator.grid)
 
       # Update clients
       for c in wss.clients
@@ -52,3 +51,8 @@ db.on 'ready', -> db.get 'boilerplate', (error, value) ->
   app.listen 8080
   console.log "Listening on port #{port}"
 
+if redis?
+  db = redis.createClient()
+  db.on 'ready', -> db.get 'boilerplate', run
+else
+  run null, '{}'

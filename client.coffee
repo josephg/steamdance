@@ -13,6 +13,21 @@ canvas.onclick = (e) ->
   sty = Math.floor my / CELL_SIZE
   clicked stx, sty
 
+placing = 'nothing'
+document.onkeydown = (e) ->
+  kc = e.keyCode
+  pressed = ({
+    49: 'nothing'
+    50: 'solid'
+    51: 'positive'
+    52: 'negative'
+    53: 'shuttle'
+    54: 'thinshuttle'
+    55: 'thinsolid'
+  })[kc]
+  if pressed?
+    placing = if pressed is 'solid' then null else pressed
+
 grid = {}
 ws = new WebSocket 'ws://' + window.location.host
 ws.onmessage = (msg) ->
@@ -54,7 +69,10 @@ clicked = (stx, sty) ->
   tx = stx - scroll_x
   ty = sty - scroll_y
   delta = {}
-  delta[[tx,ty]] = 'nothing'
+  delta[[tx,ty]] = placing
   ws.send JSON.stringify {delta}
-  grid[[tx,ty]] = 'nothing'
+  if placing?
+    grid[[tx,ty]] = placing
+  else
+    delete grid[[tx,ty]]
   draw()
