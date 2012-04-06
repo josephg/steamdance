@@ -33,7 +33,7 @@ run = (error, value) ->
 
   wss.on 'connection', (ws) ->
     ws.on 'message', (msg) ->
-      console.log msg
+      #console.log msg
       try
         msg = JSON.parse msg
         if msg.delta
