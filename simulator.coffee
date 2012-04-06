@@ -31,6 +31,8 @@ class Simulator
     if v?
       @grid[[x,y]] = v
       @delta[[x,y]] = v
+
+      delete @engines[[x,y]]
       if v in ['positive', 'negative']
         @engines[[x,y]] = {x,y}
     else
