@@ -19,6 +19,12 @@ class Simulator
   constructor: (@grid) ->
     @grid ||= {}
     @engines = {}
+    for k,v of @grid
+      if v in ['positive','negative']
+        [_,x,y] = /^(\d+),(\d+)$/.exec k
+        x = parseInt x
+        y = parseInt y
+        @engines[[x,y]] = {x,y}
     @delta = {}
 
   set: (x, y, v) ->
@@ -93,7 +99,7 @@ class Simulator
           else
             false
 
-    #console.log pressure, shuttles, @engines
+    console.log pressure, shuttles, @engines
 
     for {points, force} in shuttles
       movedX = @tryMove points, force.x, 0
