@@ -65,15 +65,18 @@ document.onkeydown = (e) ->
     placing = if pressed is 'solid' then null else pressed
   draw()
 
-mouse = {x:0,y:0}
+mouse = {x:0,y:0, down:false}
+window.onblur = -> mouse.down = false
 canvas.onmousemove = (e) ->
   mouse.x = e.pageX - e.target.offsetLeft
   mouse.y = e.pageY - e.target.offsetTop
+  if mouse.down
+    paint()
   draw()
 
-canvas.onclick = (e) ->
-  mx = e.pageX - e.target.offsetLeft
-  my = e.pageY - e.target.offsetTop
+paint = ->
+  mx = mouse.x
+  my = mouse.y
   stx = Math.floor mx / CELL_SIZE
   sty = Math.floor my / CELL_SIZE
 
@@ -86,7 +89,13 @@ canvas.onclick = (e) ->
     grid[[tx,ty]] = placing
   else
     delete grid[[tx,ty]]
+
+canvas.onmousedown = ->
+  mouse.down = true
+  paint()
   draw()
+canvas.onmouseup = ->
+  mouse.down = false
 
 draw = ->
   ctx.fillStyle = 'black'
