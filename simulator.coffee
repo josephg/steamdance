@@ -16,7 +16,7 @@ fill = (initial_squares, f) ->
 	return
 
 parseXY = (k) ->
-  [_,x,y] = /^(\d+),(\d+)$/.exec k
+  [x,y] = k.split /,/
   {x:parseInt(x), y:parseInt(y)}
 
 class Simulator
@@ -68,7 +68,7 @@ class Simulator
     shuttleMap = {}
     shuttles = []
     getShuttle = (x, y) =>
-      return null unless @get(x, y) in ['shuttle', 'thinshuttle']
+      return null unless @get(x, y) in ['shuttle']
       s = shuttleMap[[x,y]]
       return s if s
 
@@ -94,7 +94,7 @@ class Simulator
       direction = if 'positive' is @get v.x, v.y then 1 else -1
       fill [v], (x, y) =>
         cell = @get x, y
-        return true if x is v.x and y is v.y
+        cell = 'nothing' if x is v.x and y is v.y
 
         switch cell
           when 'positive', 'negative'
@@ -113,7 +113,7 @@ class Simulator
           else
             false
 
-    console.log shuttles, @engines
+    #console.log shuttles, @engines
 
     for {points, force} in shuttles
       movedY = @tryMove points, 0, force.y# + 1

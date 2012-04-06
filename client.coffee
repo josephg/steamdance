@@ -101,7 +101,7 @@ draw = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   for k,v of grid
-    [_,x,y] = /^(\d+),(\d+)$/.exec k
+    [x,y] = k.split /,/
     x = parseInt x
     y = parseInt y
     if scroll_x <= x < scroll_x + Math.floor(canvas.width/CELL_SIZE) and

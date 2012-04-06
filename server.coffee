@@ -28,7 +28,7 @@ run = (error, value) ->
       for c in wss.clients
         c.send JSON.stringify {delta}
 
-      console.log delta
+      #console.log delta
       break
 
   wss.on 'connection', (ws) ->
@@ -38,13 +38,13 @@ run = (error, value) ->
         msg = JSON.parse msg
         if msg.delta
           for k, v of msg.delta
-            [_,x,y] = /^(\d+),(\d+)$/.exec k
+            [x,y] = k.split /,/
             x = parseInt x
             y = parseInt y
 
             simulator.set x, y, v
       catch e
-        console.log 'invalid JSON', e
+        console.log 'invalid JSON', e, msg
 
     ws.send JSON.stringify({delta:simulator.grid})
 
