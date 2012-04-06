@@ -93,8 +93,12 @@ draw = ->
       ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
   mtx = Math.floor mouse.x/CELL_SIZE
   mty = Math.floor mouse.y/CELL_SIZE
+
+  ctx.globalAlpha = 0.5
   ctx.fillStyle = if grid[[mtx,mty]] then 'black' else 'white'
   ctx.fillRect mtx*CELL_SIZE,mty*CELL_SIZE,CELL_SIZE,CELL_SIZE
   ctx.fillStyle = colors[placing ? 'solid']
   ctx.fillRect mtx*CELL_SIZE+1,mty*CELL_SIZE+1,CELL_SIZE-2,CELL_SIZE-2
+  ctx.globalAlpha = 1
+
   return
