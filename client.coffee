@@ -29,6 +29,7 @@ colors =
 	shuttle: 'rgb(128,0,128)'
 	negative: 'red'
 	positive: 'rgb(0,255,0)'
+	thinsolid: 'rgb(128,128,128)'
 
 placing = 'nothing'
 document.onkeydown = (e) ->
