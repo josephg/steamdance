@@ -30,7 +30,13 @@ scroll_x = 0 # in tile coords
 scroll_y = 0
 
 colors =
-  nothing: 'white'
+	solid: 'black'
+	nothing: 'white'
+	thinshuttle: 'rgb(255,0,255)'
+	shuttle: 'rgb(128,0,128)'
+	negative: 'red'
+	positive: 'rgb(0,255,0)'
+
 draw = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
