@@ -15,15 +15,17 @@ fill = (initial_squares, f) ->
 			hmm n.x, n.y-1, 0,-1
 	return
 
+parseXY = (k) ->
+  [_,x,y] = /^(\d+),(\d+)$/.exec k
+  {x:parseInt(x), y:parseInt(y)}
+
 class Simulator
   constructor: (@grid) ->
     @grid ||= {}
     @engines = {}
     for k,v of @grid
       if v in ['positive','negative']
-        [_,x,y] = /^(\d+),(\d+)$/.exec k
-        x = parseInt x
-        y = parseInt y
+        {x,y} = parseXY k
         @engines[[x,y]] = {x,y}
     @delta = {}
 
@@ -83,6 +85,11 @@ class Simulator
 
       s
 
+    # Populate the shuttles list with all shuttles. Needed because of gravity
+    for k,v of @grid
+      {x,y} = parseXY k
+      getShuttle x, y
+
     for k,v of @engines
       direction = if 'positive' is @get v.x, v.y then 1 else -1
       fill [v], (x, y, dx, dy) =>
@@ -104,8 +111,8 @@ class Simulator
     console.log pressure, shuttles, @engines
 
     for {points, force} in shuttles
-      movedX = @tryMove points, force.x, 0
-      @tryMove points, 0, force.y unless movedX
+      movedY = @tryMove points, 0, force.y + 1
+      @tryMove points, force.x, 0 unless movedY
 
     thisDelta = @delta
     @delta = {}
