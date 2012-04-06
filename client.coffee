@@ -74,14 +74,21 @@ canvas.onmousemove = (e) ->
     paint()
   draw()
 
+window.onmousewheel = (e) ->
+  console.log "mouse scroll", e
+  scroll_x += e.wheelDeltaX / -40
+  scroll_y += e.wheelDeltaY / -40
+  e.preventDefault()
+  draw()
+
 paint = ->
   mx = mouse.x
   my = mouse.y
-  stx = Math.floor mx / CELL_SIZE
-  sty = Math.floor my / CELL_SIZE
+  tx = Math.floor mx / CELL_SIZE + scroll_x
+  ty = Math.floor my / CELL_SIZE + scroll_y
 
-  tx = stx + scroll_x
-  ty = sty + scroll_y
+  #tx = stx + scroll_x
+  #ty = sty + scroll_y
   delta = {}
   delta[[tx,ty]] = placing
   ws.send JSON.stringify {delta}
@@ -108,8 +115,14 @@ draw = ->
        scroll_y <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
       ctx.fillStyle = colors[v]
       ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
-  mtx = Math.floor mouse.x/CELL_SIZE
-  mty = Math.floor mouse.y/CELL_SIZE
+
+  mx = mouse.x
+  my = mouse.y
+  tx = Math.floor mx / CELL_SIZE + scroll_x
+  ty = Math.floor my / CELL_SIZE + scroll_y
+
+  mtx = tx - scroll_x
+  mty = ty - scroll_y
 
   ctx.fillStyle = colors[placing ? 'solid']
   ctx.fillRect mtx*CELL_SIZE + CELL_SIZE/4, mty*CELL_SIZE + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
