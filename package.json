@@ -1,0 +1,20 @@
+{
+  "author": "Joseph Gentle <josephg@gmail.com>",
+  "name": "boilerplate",
+  "description": "A multiplayer steam-based CPU simulator",
+  "version": "0.0.0",
+  "repository": {
+    "url": ""
+  },
+  "main": "server.coffee",
+  "dependencies": {
+    "redis":"*",
+    "express":"*",
+    "ws":"*"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}
