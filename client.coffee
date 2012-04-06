@@ -6,28 +6,6 @@ ctx = canvas.getContext '2d'
 
 CELL_SIZE = 20
 
-canvas.onclick = (e) ->
-  mx = e.pageX - e.target.offsetLeft
-  my = e.pageY - e.target.offsetTop
-  stx = Math.floor mx / CELL_SIZE
-  sty = Math.floor my / CELL_SIZE
-  clicked stx, sty
-
-placing = 'nothing'
-document.onkeydown = (e) ->
-  kc = e.keyCode
-  pressed = ({
-    49: 'nothing'
-    50: 'solid'
-    51: 'positive'
-    52: 'negative'
-    53: 'shuttle'
-    54: 'thinshuttle'
-    55: 'thinsolid'
-  })[kc]
-  if pressed?
-    placing = if pressed is 'solid' then null else pressed
-
 grid = {}
 ws = new WebSocket 'ws://' + window.location.host
 ws.onmessage = (msg) ->
@@ -52,6 +30,55 @@ colors =
 	negative: 'red'
 	positive: 'rgb(0,255,0)'
 
+placing = 'nothing'
+document.onkeydown = (e) ->
+  kc = e.keyCode
+  console.log kc
+  pressed = ({
+    # 1-7
+    49: 'nothing'
+    50: 'solid'
+    51: 'positive'
+    52: 'negative'
+    53: 'shuttle'
+    54: 'thinshuttle'
+    55: 'thinsolid'
+
+    80: 'positive' # p
+    78: 'negative' # n
+    83: 'shuttle' # s
+    65: 'thinshuttle' # a
+    69: 'nothing' # e
+    66: 'thinsolid' # b
+    68: 'solid' # d
+  })[kc]
+  if pressed?
+    placing = if pressed is 'solid' then null else pressed
+  draw()
+
+mouse = {x:0,y:0}
+canvas.onmousemove = (e) ->
+  mouse.x = e.pageX - e.target.offsetLeft
+  mouse.y = e.pageY - e.target.offsetTop
+  draw()
+
+canvas.onclick = (e) ->
+  mx = e.pageX - e.target.offsetLeft
+  my = e.pageY - e.target.offsetTop
+  stx = Math.floor mx / CELL_SIZE
+  sty = Math.floor my / CELL_SIZE
+
+  tx = stx - scroll_x
+  ty = sty - scroll_y
+  delta = {}
+  delta[[tx,ty]] = placing
+  ws.send JSON.stringify {delta}
+  if placing?
+    grid[[tx,ty]] = placing
+  else
+    delete grid[[tx,ty]]
+  draw()
+
 draw = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
@@ -63,16 +90,10 @@ draw = ->
        scroll_y <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
       ctx.fillStyle = colors[v]
       ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+  mtx = Math.floor mouse.x/CELL_SIZE
+  mty = Math.floor mouse.y/CELL_SIZE
+  ctx.fillStyle = if grid[[mtx,mty]] then 'black' else 'white'
+  ctx.fillRect mtx*CELL_SIZE,mty*CELL_SIZE,CELL_SIZE,CELL_SIZE
+  ctx.fillStyle = colors[placing ? 'solid']
+  ctx.fillRect mtx*CELL_SIZE+1,mty*CELL_SIZE+1,CELL_SIZE-2,CELL_SIZE-2
   return
-
-clicked = (stx, sty) ->
-  tx = stx - scroll_x
-  ty = sty - scroll_y
-  delta = {}
-  delta[[tx,ty]] = placing
-  ws.send JSON.stringify {delta}
-  if placing?
-    grid[[tx,ty]] = placing
-  else
-    delete grid[[tx,ty]]
-  draw()
