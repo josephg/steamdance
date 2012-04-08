@@ -5,6 +5,8 @@ canvas.height = 600
 ctx = canvas.getContext '2d'
 
 CELL_SIZE = 20
+zoom_level = 1
+size = CELL_SIZE * zoom_level
 
 grid = {}
 pressure = {}
@@ -79,16 +81,25 @@ canvas.onmousemove = (e) ->
 
 window.onmousewheel = (e) ->
   console.log "mouse scroll", e
-  scroll_x += e.wheelDeltaX / -40
-  scroll_y += e.wheelDeltaY / -40
+  if e.shiftKey
+    oldsize = size
+    zoom_level += e.wheelDeltaY / 800
+    zoom_level = Math.max(Math.min(zoom_level, 5),1/CELL_SIZE)
+    size = Math.floor zoom_level * CELL_SIZE
+
+    scroll_x += mouse.x / oldsize - mouse.x / size
+    scroll_y += mouse.y / oldsize - mouse.y / size
+  else
+    scroll_x += e.wheelDeltaX / (-2 * size)
+    scroll_y += e.wheelDeltaY / (-2 * size)
   e.preventDefault()
   draw()
 
 paint = ->
   mx = mouse.x
   my = mouse.y
-  tx = Math.floor mx / CELL_SIZE + scroll_x
-  ty = Math.floor my / CELL_SIZE + scroll_y
+  tx = Math.floor mx / size + scroll_x
+  ty = Math.floor my / size + scroll_y
 
   #tx = stx + scroll_x
   #ty = sty + scroll_y
@@ -114,26 +125,26 @@ draw = ->
     [x,y] = k.split /,/
     x = parseInt x
     y = parseInt y
-    if scroll_x <= x < scroll_x + Math.floor(canvas.width/CELL_SIZE) and
-       scroll_y <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
+    if scroll_x <= x < scroll_x + Math.floor(canvas.width/size) and
+       scroll_y <= y < scroll_y + Math.floor(canvas.height/size)
       ctx.fillStyle = colors[v]
-      ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+      ctx.fillRect (x-scroll_x)*size, (y-scroll_y)*size, size, size
       if (p = pressure[k]) and p != 0
         ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+        ctx.fillRect (x-scroll_x)*size, (y-scroll_y)*size, size, size
 
   mx = mouse.x
   my = mouse.y
-  tx = Math.floor mx / CELL_SIZE + scroll_x
-  ty = Math.floor my / CELL_SIZE + scroll_y
+  tx = Math.floor mx / size + scroll_x
+  ty = Math.floor my / size + scroll_y
 
   mtx = tx - scroll_x
   mty = ty - scroll_y
 
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect mtx*CELL_SIZE + CELL_SIZE/4, mty*CELL_SIZE + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
+  ctx.fillRect mtx*size + size/4, mty*size + size/4, size/2, size/2
 
   ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.strokeRect mtx*CELL_SIZE + 1,mty*CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2
+  ctx.strokeRect mtx*size + 1,mty*size + 1, size - 2, size - 2
 
   return
