@@ -78,7 +78,7 @@ canvas.onmousemove = (e) ->
   draw()
 
 window.onmousewheel = (e) ->
-  console.log "mouse scroll", e
+  #console.log "mouse scroll", e
   scroll_x += e.wheelDeltaX / -40
   scroll_y += e.wheelDeltaY / -40
   e.preventDefault()
@@ -114,13 +114,16 @@ draw = ->
     [x,y] = k.split /,/
     x = parseInt x
     y = parseInt y
-    if scroll_x <= x < scroll_x + Math.floor(canvas.width/CELL_SIZE) and
-       scroll_y <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
+    if scroll_x - CELL_SIZE <= x < scroll_x + Math.floor(canvas.width/CELL_SIZE) and
+       scroll_y - CELL_SIZE <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
       ctx.fillStyle = colors[v]
-      ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+      px = Math.floor(CELL_SIZE * (x - scroll_x))
+      py = Math.floor(CELL_SIZE * (y - scroll_y))
+
+      ctx.fillRect px, py, CELL_SIZE, CELL_SIZE
       if (p = pressure[k]) and p != 0
         ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+        ctx.fillRect px, py, CELL_SIZE, CELL_SIZE
 
   mx = mouse.x
   my = mouse.y
@@ -130,10 +133,13 @@ draw = ->
   mtx = tx - scroll_x
   mty = ty - scroll_y
 
+  px = Math.floor(mtx * CELL_SIZE)
+  py = Math.floor(mty * CELL_SIZE)
+
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect mtx*CELL_SIZE + CELL_SIZE/4, mty*CELL_SIZE + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
+  ctx.fillRect px + CELL_SIZE/4, py + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
 
   ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.strokeRect mtx*CELL_SIZE + 1,mty*CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2
+  ctx.strokeRect px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2
 
   return
