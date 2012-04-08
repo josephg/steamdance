@@ -80,7 +80,7 @@ canvas.onmousemove = (e) ->
   draw()
 
 window.onmousewheel = (e) ->
-  console.log "mouse scroll", e
+  #console.log "mouse scroll", e
   if e.shiftKey
     oldsize = size
     zoom_level += e.wheelDeltaY / 800
@@ -125,13 +125,16 @@ draw = ->
     [x,y] = k.split /,/
     x = parseInt x
     y = parseInt y
-    if scroll_x <= x < scroll_x + Math.floor(canvas.width/size) and
-       scroll_y <= y < scroll_y + Math.floor(canvas.height/size)
+    if scroll_x - size <= x < scroll_x + Math.floor(canvas.width/size) and
+       scroll_y - size <= y < scroll_y + Math.floor(canvas.height/size)
       ctx.fillStyle = colors[v]
-      ctx.fillRect (x-scroll_x)*size, (y-scroll_y)*size, size, size
+      px = Math.floor(size * (x - scroll_x))
+      py = Math.floor(size * (y - scroll_y))
+
+      ctx.fillRect px, py, size, size
       if (p = pressure[k]) and p != 0
         ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect (x-scroll_x)*size, (y-scroll_y)*size, size, size
+        ctx.fillRect px, py, size, size
 
   mx = mouse.x
   my = mouse.y
@@ -141,10 +144,13 @@ draw = ->
   mtx = tx - scroll_x
   mty = ty - scroll_y
 
+  px = Math.floor(mtx * size)
+  py = Math.floor(mty * size)
+
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect mtx*size + size/4, mty*size + size/4, size/2, size/2
+  ctx.fillRect px + size/4, py + size/4, size/2, size/2
 
   ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.strokeRect mtx*size + 1,mty*size + 1, size - 2, size - 2
+  ctx.strokeRect px + 1, py + 1, size - 2, size - 2
 
   return
