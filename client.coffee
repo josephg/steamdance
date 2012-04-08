@@ -5,6 +5,8 @@ canvas.height = 600
 ctx = canvas.getContext '2d'
 
 CELL_SIZE = 20
+zoom_level = 1
+size = CELL_SIZE * zoom_level
 
 grid = {}
 pressure = {}
@@ -96,8 +98,8 @@ window.onmousewheel = (e) ->
 paint = ->
   mx = mouse.x
   my = mouse.y
-  tx = Math.floor mx / CELL_SIZE + scroll_x
-  ty = Math.floor my / CELL_SIZE + scroll_y
+  tx = Math.floor mx / size + scroll_x
+  ty = Math.floor my / size + scroll_y
 
   #tx = stx + scroll_x
   #ty = sty + scroll_y
@@ -136,8 +138,8 @@ draw = ->
 
   mx = mouse.x
   my = mouse.y
-  tx = Math.floor mx / CELL_SIZE + scroll_x
-  ty = Math.floor my / CELL_SIZE + scroll_y
+  tx = Math.floor mx / size + scroll_x
+  ty = Math.floor my / size + scroll_y
 
   mtx = tx - scroll_x
   mty = ty - scroll_y
