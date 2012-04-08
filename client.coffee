@@ -7,6 +7,7 @@ ctx = canvas.getContext '2d'
 CELL_SIZE = 20
 
 grid = {}
+pressure = {}
 ws = new WebSocket 'ws://' + window.location.host
 ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
@@ -17,6 +18,8 @@ ws.onmessage = (msg) ->
         grid[k] = v
       else
         delete grid[k]
+    s = new Simulator grid
+    pressure = s.getPressure()
     draw()
 
 scroll_x = 0 # in tile coords
@@ -115,6 +118,9 @@ draw = ->
        scroll_y <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
       ctx.fillStyle = colors[v]
       ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
+      if (p = pressure[k]) and p != 0
+        ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
+        ctx.fillRect (x-scroll_x)*CELL_SIZE, (y-scroll_y)*CELL_SIZE, CELL_SIZE, CELL_SIZE
 
   mx = mouse.x
   my = mouse.y

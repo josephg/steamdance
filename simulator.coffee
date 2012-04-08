@@ -62,9 +62,20 @@ class Simulator
 
     true
 
+  getPressure: ->
+    pressure = {}
+    for k,v of @engines
+      direction = if 'positive' is @get v.x, v.y then 1 else -1
+      console.log 'filling',direction
+      fill [v], (x, y) =>
+        cell = @get x, y
+        cell = 'nothing' if x is v.x and y is v.y
+        if cell in ['nothing', 'thinshuttle', 'thinsolid']
+          pressure[[x,y]] = (pressure[[x,y]] ? 0) + direction
+          return true
+        false
+    pressure
   step: ->
-    #pressure = {}
-
     shuttleMap = {}
     shuttles = []
     getShuttle = (x, y) =>
@@ -97,10 +108,6 @@ class Simulator
         cell = 'nothing' if x is v.x and y is v.y
 
         switch cell
-          when 'positive', 'negative'
-            false
-          when 'shuttle'
-            false
           when 'nothing', 'thinshuttle', 'thinsolid'
             for [dx,dy] in [[0,1],[0,-1],[1,0],[-1,0]]
               s = getShuttle x+dx, y+dy
@@ -125,4 +132,5 @@ class Simulator
     thisDelta
 
 
-module.exports = Simulator
+if typeof module != 'undefined'
+	module.exports = Simulator
