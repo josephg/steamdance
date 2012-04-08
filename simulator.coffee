@@ -66,7 +66,6 @@ class Simulator
     pressure = {}
     for k,v of @engines
       direction = if 'positive' is @get v.x, v.y then 1 else -1
-      console.log 'filling',direction
       fill [v], (x, y) =>
         cell = @get x, y
         cell = 'nothing' if x is v.x and y is v.y
