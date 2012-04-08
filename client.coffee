@@ -79,8 +79,17 @@ canvas.onmousemove = (e) ->
 
 window.onmousewheel = (e) ->
   #console.log "mouse scroll", e
-  scroll_x += e.wheelDeltaX / -40
-  scroll_y += e.wheelDeltaY / -40
+  if e.shiftKey
+    oldsize = size
+    zoom_level += e.wheelDeltaY / 800
+    zoom_level = Math.max(Math.min(zoom_level, 5),1/CELL_SIZE)
+    size = Math.floor zoom_level * CELL_SIZE
+
+    scroll_x += mouse.x / oldsize - mouse.x / size
+    scroll_y += mouse.y / oldsize - mouse.y / size
+  else
+    scroll_x += e.wheelDeltaX / (-2 * size)
+    scroll_y += e.wheelDeltaY / (-2 * size)
   e.preventDefault()
   draw()
 
@@ -114,16 +123,16 @@ draw = ->
     [x,y] = k.split /,/
     x = parseInt x
     y = parseInt y
-    if scroll_x - CELL_SIZE <= x < scroll_x + Math.floor(canvas.width/CELL_SIZE) and
-       scroll_y - CELL_SIZE <= y < scroll_y + Math.floor(canvas.height/CELL_SIZE)
+    if scroll_x - size <= x < scroll_x + Math.floor(canvas.width/size) and
+       scroll_y - size <= y < scroll_y + Math.floor(canvas.height/size)
       ctx.fillStyle = colors[v]
-      px = Math.floor(CELL_SIZE * (x - scroll_x))
-      py = Math.floor(CELL_SIZE * (y - scroll_y))
+      px = Math.floor(size * (x - scroll_x))
+      py = Math.floor(size * (y - scroll_y))
 
-      ctx.fillRect px, py, CELL_SIZE, CELL_SIZE
+      ctx.fillRect px, py, size, size
       if (p = pressure[k]) and p != 0
         ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect px, py, CELL_SIZE, CELL_SIZE
+        ctx.fillRect px, py, size, size
 
   mx = mouse.x
   my = mouse.y
@@ -133,13 +142,13 @@ draw = ->
   mtx = tx - scroll_x
   mty = ty - scroll_y
 
-  px = Math.floor(mtx * CELL_SIZE)
-  py = Math.floor(mty * CELL_SIZE)
+  px = Math.floor(mtx * size)
+  py = Math.floor(mty * size)
 
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect px + CELL_SIZE/4, py + CELL_SIZE/4, CELL_SIZE/2, CELL_SIZE/2
+  ctx.fillRect px + size/4, py + size/4, size/2, size/2
 
   ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.strokeRect px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2
+  ctx.strokeRect px + 1, py + 1, size - 2, size - 2
 
   return
