@@ -99,13 +99,8 @@ window.onmousewheel = (e) ->
   draw()
 
 paint = ->
-  mx = mouse.x
-  my = mouse.y
-  tx = Math.floor mx / size + scroll_x
-  ty = Math.floor my / size + scroll_y
+  {tx, ty} = screenToWorld mouse.x, mouse.y
 
-  #tx = stx + scroll_x
-  #ty = sty + scroll_y
   delta = {}
   delta[[tx,ty]] = placing
   ws.send JSON.stringify {delta}
