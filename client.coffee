@@ -28,13 +28,13 @@ scroll_x = 0 # in tile coords
 scroll_y = 0
 
 colors =
-	solid: 'black'
-	nothing: 'white'
-	thinshuttle: 'rgb(255,0,255)'
-	shuttle: 'rgb(128,0,128)'
-	negative: 'red'
-	positive: 'rgb(0,255,0)'
-	thinsolid: 'rgb(128,128,128)'
+  solid: 'black'
+  nothing: 'white'
+  thinshuttle: 'rgb(255,0,255)'
+  shuttle: 'rgb(128,0,128)'
+  negative: 'red'
+  positive: 'rgb(0,255,0)'
+  thinsolid: 'rgb(128,128,128)'
 
 placing = 'nothing'
 document.onkeydown = (e) ->
