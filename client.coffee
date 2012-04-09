@@ -17,7 +17,6 @@ ws = new WebSocket 'ws://' + window.location.host
 ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
   if msg.delta
-    #console.log msg.delta
     for k,v of msg.delta
       if v?
         grid[k] = v
@@ -98,7 +97,6 @@ document.onkeyup = (e) ->
     draw()
 
 window.onmousewheel = (e) ->
-  #console.log "mouse scroll", e
   if e.shiftKey
     oldsize = size
     zoom_level += e.wheelDeltaY / 800
