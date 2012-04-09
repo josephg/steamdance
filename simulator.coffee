@@ -1,10 +1,12 @@
+cardinal_dirs = [[0,1],[0,-1],[1,0],[-1,0]]
 fill = (initial_squares, f) ->
 	visited = {}
-	visited[[x,y]] = true for {x, y} in initial_squares
+	visited["#{x},#{y}"] = true for {x, y} in initial_squares
 	to_explore = initial_squares.slice()
 	hmm = (x,y) ->
-		if not visited[[x,y]]
-			visited[[x,y]] = true
+		k = "#{x},#{y}"
+		if not visited[k]
+			visited[k] = true
 			to_explore.push {x,y}
 	while n = to_explore.shift()
 		ok = f n.x, n.y
@@ -26,23 +28,25 @@ class Simulator
     for k,v of @grid
       if v in ['positive','negative']
         {x,y} = parseXY k
-        @engines[[x,y]] = {x,y}
+        @engines[k] = {x,y}
+    console.log "Initiating #{Object.keys(@engines).length} engines..."
     @delta = {}
 
   set: (x, y, v) ->
+    k = "#{x},#{y}"
     if v?
-      @grid[[x,y]] = v
-      @delta[[x,y]] = v
+      @grid[k] = v
+      @delta[k] = v
 
-      delete @engines[[x,y]]
+      delete @engines[k]
       if v in ['positive', 'negative']
-        @engines[[x,y]] = {x,y}
+        @engines[k] = {x,y}
     else
-      if @grid[[x,y]] in ['positive', 'negative']
-        delete @engines[[x,y]]
-      delete @grid[[x,y]]
-      @delta[[x,y]] = null
-  get: (x,y) -> @grid[[x,y]]
+      if @grid[k] in ['positive', 'negative']
+        delete @engines[k]
+      delete @grid[k]
+      @delta[k] = null
+  get: (x,y) -> @grid["#{x},#{y}"]
 
   tryMove: (points, dx, dy) ->
     dx = if dx < 0 then -1 else if dx > 0 then 1 else 0
@@ -55,10 +59,10 @@ class Simulator
 
     shuttle = {}
     for {x,y} in points
-      shuttle[[x,y]] = @get x, y
+      shuttle["#{x},#{y}"] = @get x, y
       @set x, y, 'nothing'
     for {x,y} in points
-      @set x+dx, y+dy, shuttle[[x,y]]
+      @set x+dx, y+dy, shuttle["#{x},#{y}"]
 
     true
 
@@ -70,7 +74,7 @@ class Simulator
         cell = @get x, y
         cell = 'nothing' if x is v.x and y is v.y
         if cell in ['nothing', 'thinshuttle', 'thinsolid']
-          pressure[[x,y]] = (pressure[[x,y]] ? 0) + direction
+          pressure["#{x},#{y}"] = (pressure["#{x},#{y}"] ? 0) + direction
           return true
         false
     pressure
@@ -79,7 +83,7 @@ class Simulator
     shuttles = []
     getShuttle = (x, y) =>
       return null unless @get(x, y) in ['shuttle']
-      s = shuttleMap[[x,y]]
+      s = shuttleMap["#{x},#{y}"]
       return s if s
 
       shuttles.push (s = {points:[], force:{x:0,y:0}})
@@ -87,7 +91,7 @@ class Simulator
       # Flood fill the shuttle
       fill [{x,y}], (x, y) =>
         if @get(x, y) in ['shuttle', 'thinshuttle']
-          shuttleMap[[x,y]] = s
+          shuttleMap["#{x},#{y}"] = s
           s.points.push {x,y}
           true
         else
@@ -108,7 +112,7 @@ class Simulator
 
         switch cell
           when 'nothing', 'thinshuttle', 'thinsolid'
-            for [dx,dy] in [[0,1],[0,-1],[1,0],[-1,0]]
+            for [dx,dy] in cardinal_dirs
               s = getShuttle x+dx, y+dy
               if s
                 s.force.x += dx * direction
