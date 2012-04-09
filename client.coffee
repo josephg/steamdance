@@ -51,6 +51,17 @@ placing = 'nothing'
 imminent_select = false
 selectedA = selectedB = null
 selection = null
+
+flip = (dir) ->
+  return unless selection
+  new_selection = {tw:tw = selection.tw, th:th = selection.th}
+  for k,v of selection
+    {x:tx,y:ty} = parseXY k
+    tx_ = if 'x' in dir then tw-1 - tx else tx
+    ty_ = if 'y' in dir then th-1 - ty else ty
+    new_selection[[tx_,ty_]] = v
+  selection = new_selection
+
 document.onkeydown = (e) ->
   kc = e.keyCode
   if kc == 37 # left
@@ -67,6 +78,11 @@ document.onkeydown = (e) ->
 
   if kc == 27 # esc
     selection = null
+
+  if kc == 88 # x
+    flip 'x' if selection
+  else if kc == 89 # y
+    flip 'y' if selection
 
   pressed = ({
     # 1-7
@@ -131,7 +147,7 @@ paste = ->
       tx = mtx+x
       ty = mty+y
       if (s = selection[[x,y]]) != grid[[tx,ty]]
-        delta[[tx,ty]] = s
+        delta[[tx,ty]] = s or null
         if s?
           grid[[tx,ty]] = s
         else
@@ -192,9 +208,7 @@ draw = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   for k,v of grid
-    [tx,ty] = k.split /,/
-    tx = parseInt tx
-    ty = parseInt ty
+    {x:tx,y:ty} = parseXY k
     {px, py} = worldToScreen tx, ty
     if px+size >= 0 and px < canvas.width and py+size >= 0 and py < canvas.height
       ctx.fillStyle = colors[v]
