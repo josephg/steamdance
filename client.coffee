@@ -128,8 +128,8 @@ draw = ->
     if scroll_x - size <= x < scroll_x + Math.floor(canvas.width/size) and
        scroll_y - size <= y < scroll_y + Math.floor(canvas.height/size)
       ctx.fillStyle = colors[v]
-      px = Math.floor(size * (x - scroll_x))
-      py = Math.floor(size * (y - scroll_y))
+      px = Math.floor(size * x - Math.floor(size * scroll_x))
+      py = Math.floor(size * y - Math.floor(size * scroll_y))
 
       ctx.fillRect px, py, size, size
       if (p = pressure[k]) and p != 0
