@@ -118,39 +118,48 @@ canvas.onmousedown = ->
 canvas.onmouseup = ->
   mouse.down = false
 
+# given pixel x,y returns tile x,y
+screenToWorld = (px, py) ->
+  # first, the top-left pixel of the screen is at |_ scroll * size _| px from origin
+  px += Math.floor(scroll_x * size)
+  py += Math.floor(scroll_y * size)
+  # now we can simply divide and floor to find the tile
+  tx = Math.floor(px / size)
+  ty = Math.floor(py / size)
+  {tx,ty}
+
+# given tile x,y returns the pixel x,y,w,h at which the tile resides on the screen.
+worldToScreen = (tx, ty) ->
+  px: tx * size - Math.floor(scroll_x * size)
+  py: ty * size - Math.floor(scroll_y * size)
+  pw: size
+  ph: size
+
 draw = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   for k,v of grid
-    [x,y] = k.split /,/
-    x = parseInt x
-    y = parseInt y
-    if scroll_x - size <= x < scroll_x + Math.floor(canvas.width/size) and
-       scroll_y - size <= y < scroll_y + Math.floor(canvas.height/size)
+    [tx,ty] = k.split /,/
+    tx = parseInt tx
+    ty = parseInt ty
+    {px, py, pw, ph} = worldToScreen tx, ty
+    if px+pw >= 0 and px < canvas.width and py+ph >= 0 and py < canvas.height
       ctx.fillStyle = colors[v]
-      px = Math.floor(size * x - Math.floor(size * scroll_x))
-      py = Math.floor(size * y - Math.floor(size * scroll_y))
 
-      ctx.fillRect px, py, size, size
+      ctx.fillRect px, py, pw, ph
       if (p = pressure[k]) and p != 0
         ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect px, py, size, size
+        ctx.fillRect px, py, pw, ph
 
   mx = mouse.x
   my = mouse.y
-  tx = Math.floor mx / size + scroll_x
-  ty = Math.floor my / size + scroll_y
-
-  mtx = tx - scroll_x
-  mty = ty - scroll_y
-
-  px = Math.floor(mtx * size)
-  py = Math.floor(mty * size)
+  {tx, ty} = screenToWorld mx, my
+  {px, py, pw, ph} = worldToScreen tx, ty
 
   ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect px + size/4, py + size/4, size/2, size/2
+  ctx.fillRect px + pw/4, py + ph/4, pw/2, ph/2
 
-  ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
-  ctx.strokeRect px + 1, py + 1, size - 2, size - 2
+  ctx.strokeStyle = if grid[[tx,ty]] then 'black' else 'white'
+  ctx.strokeRect px + 1, py + 1, pw - 2, ph - 2
 
   return
