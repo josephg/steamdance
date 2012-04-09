@@ -48,7 +48,7 @@ run = (error, value) ->
 
     ws.send JSON.stringify({delta:simulator.grid})
 
-  app.listen 8080
+  app.listen port
   console.log "Listening on port #{port}"
 
 if redis?
