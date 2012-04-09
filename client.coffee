@@ -30,6 +30,15 @@ ws.onmessage = (msg) ->
 scroll_x = 0 # in tile coords
 scroll_y = 0
 
+copySubgrid = (rect) ->
+  {tx, ty, tw, th} = rect
+  subgrid = {tw,th}
+  for y in [ty..ty+th]
+    for x in [tx..tx+tw]
+      if s = grid[[x,y]]
+        subgrid[[x-tx,y-ty]] = s
+  subgrid
+
 colors =
   solid: 'black'
   nothing: 'white'
@@ -40,6 +49,9 @@ colors =
   thinsolid: 'rgb(128,128,128)'
 
 placing = 'nothing'
+imminent_select = false
+selectedA = selectedB = null
+selection = null
 document.onkeydown = (e) ->
   kc = e.keyCode
   if kc == 37 # left
@@ -50,6 +62,12 @@ document.onkeydown = (e) ->
     scroll_y -= 1
   else if kc == 40 # down
     scroll_y += 1
+
+  if kc == 16 # shift
+    imminent_select = true
+
+  if kc == 27 # esc
+    selection = null
 
   pressed = ({
     # 1-7
@@ -73,14 +91,11 @@ document.onkeydown = (e) ->
     placing = if pressed is 'solid' then null else pressed
   draw()
 
-mouse = {x:0,y:0, down:false}
-window.onblur = -> mouse.down = false
-canvas.onmousemove = (e) ->
-  mouse.x = e.pageX - e.target.offsetLeft
-  mouse.y = e.pageY - e.target.offsetTop
-  if mouse.down
-    paint()
-  draw()
+document.onkeyup = (e) ->
+  kc = e.keyCode
+  if kc == 16 # shift
+    imminent_select = false
+    draw()
 
 window.onmousewheel = (e) ->
   #console.log "mouse scroll", e
@@ -109,12 +124,56 @@ paint = ->
   else
     delete grid[[tx,ty]]
 
-canvas.onmousedown = ->
-  mouse.down = true
-  paint()
+paste = ->
+  throw new Error 'tried to paste without a selection' unless selection
+  {tx:mtx, ty:mty} = screenToWorld mouse.x, mouse.y
+  delta = {}
+  for y in [0...selection.th]
+    for x in [0...selection.tw]
+      tx = mtx+x
+      ty = mty+y
+      if (s = selection[[x,y]]) != grid[[tx,ty]]
+        delta[[tx,ty]] = s
+        if s?
+          grid[[tx,ty]] = s
+        else
+          delete grid[[tx,ty]]
+  ws.send JSON.stringify {delta}
+
+mouse = {x:0,y:0, mode:null}
+window.onblur = ->
+  mouse.mode = null
+  imminent_select = false
+canvas.onmousemove = (e) ->
+  mouse.x = e.pageX - e.target.offsetLeft
+  mouse.y = e.pageY - e.target.offsetTop
+  switch mouse.mode
+    when 'paint' then paint()
+    when 'select' then selectedB = screenToWorld mouse.x, mouse.y
+  draw()
+canvas.onmousedown = (e) ->
+  if imminent_select
+    mouse.mode = 'select'
+    selection = null
+    selectedA = screenToWorld mouse.x, mouse.y
+    selectedB = selectedA
+  else if selection
+    paste()
+  else
+    mouse.mode = 'paint'
+    paint()
   draw()
 canvas.onmouseup = ->
-  mouse.down = false
+  if mouse.mode is 'select'
+    selection = copySubgrid enclosingRect selectedA, selectedB
+  mouse.mode = null
+  imminent_select = false
+
+enclosingRect = (a, b) ->
+  tx: Math.min a.tx, b.tx
+  ty: Math.min a.ty, b.ty
+  tw: Math.abs(b.tx-a.tx) + 1
+  th: Math.abs(b.ty-a.ty) + 1
 
 # given pixel x,y returns tile x,y
 screenToWorld = (px, py) ->
@@ -130,8 +189,6 @@ screenToWorld = (px, py) ->
 worldToScreen = (tx, ty) ->
   px: tx * size - Math.floor(scroll_x * size)
   py: ty * size - Math.floor(scroll_y * size)
-  pw: size
-  ph: size
 
 draw = ->
   ctx.fillStyle = 'black'
@@ -140,24 +197,51 @@ draw = ->
     [tx,ty] = k.split /,/
     tx = parseInt tx
     ty = parseInt ty
-    {px, py, pw, ph} = worldToScreen tx, ty
-    if px+pw >= 0 and px < canvas.width and py+ph >= 0 and py < canvas.height
+    {px, py} = worldToScreen tx, ty
+    if px+size >= 0 and px < canvas.width and py+size >= 0 and py < canvas.height
       ctx.fillStyle = colors[v]
 
-      ctx.fillRect px, py, pw, ph
+      ctx.fillRect px, py, size, size
       if (p = pressure[k]) and p != 0
-        ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        ctx.fillRect px, py, pw, ph
+        ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.4)' else 'rgba(0,255,0,0.4)'
+        ctx.fillRect px, py, size, size
 
   mx = mouse.x
   my = mouse.y
-  {tx, ty} = screenToWorld mx, my
-  {px, py, pw, ph} = worldToScreen tx, ty
+  {tx:mtx, ty:mty} = screenToWorld mx, my
+  {px:mpx, py:mpy} = worldToScreen mtx, mty
 
-  ctx.fillStyle = colors[placing ? 'solid']
-  ctx.fillRect px + pw/4, py + ph/4, pw/2, ph/2
+  if mouse.mode is 'select'
+    sa = selectedA
+    sb = selectedB
+  else if imminent_select
+    sa = sb = {tx:mtx, ty:mty}
 
-  ctx.strokeStyle = if grid[[tx,ty]] then 'black' else 'white'
-  ctx.strokeRect px + 1, py + 1, pw - 2, ph - 2
+  if sa
+    {tx, ty, tw, th} = enclosingRect sa, sb
+    {px, py} = worldToScreen tx, ty
+    ctx.fillStyle = 'rgba(0,0,255,0.5)'
+    ctx.fillRect px, py, tw*size, th*size
+
+    ctx.strokeStyle = 'rgba(0,255,255,0.5)'
+    ctx.strokeRect px, py, tw*size, th*size
+  else if selection
+    ctx.globalAlpha = 0.8
+    for y in [0...selection.th]
+      for x in [0...selection.tw]
+        {px, py} = worldToScreen x+mtx,y+mty
+        if px+size >= 0 and px < canvas.width and py+size >= 0 and py < canvas.height
+          v = selection[[x,y]]
+          ctx.fillStyle = if v then colors[v] else 'black'
+          ctx.fillRect px, py, size, size
+    ctx.strokeStyle = 'rgba(0,255,255,0.5)'
+    ctx.strokeRect mpx, mpy, selection.tw*size, selection.th*size
+    ctx.globalAlpha = 1
+  else
+    ctx.fillStyle = colors[placing ? 'solid']
+    ctx.fillRect mpx + size/4, mpy + size/4, size/2, size/2
+
+    ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
+    ctx.strokeRect mpx + 1, mpy + 1, size - 2, size - 2
 
   return
