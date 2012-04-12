@@ -62,6 +62,14 @@ flip = (dir) ->
     new_selection[[tx_,ty_]] = v
   selection = new_selection
 
+mirror = ->
+  return unless selection
+  new_selection = {tw:tw = selection.th, th:th = selection.tw}
+  for k,v of selection
+    {x:tx,y:ty} = parseXY k
+    new_selection[[ty,tx]] = v
+  selection = new_selection
+
 document.onkeydown = (e) ->
   kc = e.keyCode
   if kc == 37 # left
@@ -83,6 +91,8 @@ document.onkeydown = (e) ->
     flip 'x' if selection
   else if kc == 89 # y
     flip 'y' if selection
+  else if kc == 77 # m
+    mirror() if selection
 
   pressed = ({
     # 1-7
