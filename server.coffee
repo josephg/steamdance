@@ -2,11 +2,13 @@
 
 try
   redis = require 'redis'
+http = require 'http'
 express = require 'express'
 Simulator = require './simulator'
-app = express.createServer()
+app = express()
 
 app.use express.static("#{__dirname}/")
+server = http.createServer app
 port = 8080
 
 run = (error, value) ->
@@ -16,7 +18,7 @@ run = (error, value) ->
   console.log simulator.grid
 
   WebSocketServer = require('ws').Server
-  wss = new WebSocketServer {server: app}
+  wss = new WebSocketServer {server}
   si = (time, fn) -> setInterval fn, time
   si 200, ->
     delta = simulator.step()
@@ -48,7 +50,7 @@ run = (error, value) ->
 
     ws.send JSON.stringify({delta:simulator.grid})
 
-  app.listen port
+  server.listen port
   console.log "Listening on port #{port}"
 
 if redis?

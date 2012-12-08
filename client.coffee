@@ -14,6 +14,8 @@ size = CELL_SIZE * zoom_level
 grid = {}
 pressure = {}
 ws = new WebSocket 'ws://' + window.location.host
+ws.onerror = (err) ->
+  console.err err
 ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
   if msg.delta
