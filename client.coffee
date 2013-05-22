@@ -1,9 +1,11 @@
 canvas = document.getElementsByTagName('canvas')[0]
+canvas.parentNode.appendChild(uiCanvas = document.createElement('canvas'))
 
 window.onresize = ->
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
+  uiCanvas.width = canvas.width = window.innerWidth
+  uiCanvas.height = canvas.height = window.innerHeight
   draw?()
+  drawUI?()
 window.onresize()
 ctx = canvas.getContext '2d'
 
@@ -170,14 +172,14 @@ mouse = {x:0,y:0, mode:null}
 window.onblur = ->
   mouse.mode = null
   imminent_select = false
-canvas.onmousemove = (e) ->
-  mouse.x = e.pageX - e.target.offsetLeft
-  mouse.y = e.pageY - e.target.offsetTop
+document.onmousemove = (e) ->
+  mouse.x = e.pageX
+  mouse.y = e.pageY
   switch mouse.mode
     when 'paint' then paint()
     when 'select' then selectedB = screenToWorld mouse.x, mouse.y
   draw()
-canvas.onmousedown = (e) ->
+document.onmousedown = (e) ->
   if imminent_select
     mouse.mode = 'select'
     selection = null
@@ -189,7 +191,7 @@ canvas.onmousedown = (e) ->
     mouse.mode = 'paint'
     paint()
   draw()
-canvas.onmouseup = ->
+document.onmouseup = ->
   if mouse.mode is 'select'
     selection = copySubgrid enclosingRect selectedA, selectedB
   mouse.mode = null
@@ -216,7 +218,23 @@ worldToScreen = (tx, ty) ->
   px: tx * size - Math.floor(scroll_x * size)
   py: ty * size - Math.floor(scroll_y * size)
 
+requestAnimationFrame = window.requestAnimationFrame or
+  window.webkitRequestAnimationFrame or
+  window.mozRequestAnimationFrame or
+  window.oRequestAnimationFrame or
+  window.msRequestAnimationFrame or
+  (callback) ->
+    window.setTimeout(callback, 1000 / 60)
+
+needsDraw = false
 draw = ->
+  return if needsDraw
+  needsDraw = true
+  requestAnimationFrame ->
+    drawReal()
+    drawUI()
+    needsDraw = false
+drawReal = ->
   ctx.fillStyle = 'black'
   ctx.fillRect 0, 0, canvas.width, canvas.height
   for k,v of grid
@@ -268,4 +286,38 @@ draw = ->
     ctx.strokeStyle = if grid[[mtx,mty]] then 'black' else 'white'
     ctx.strokeRect mpx + 1, mpy + 1, size - 2, size - 2
 
+
   return
+
+drawUI = ->
+  uictx = uiCanvas.getContext '2d'
+  uictx.clearRect 0, 0, uiCanvas.width, uiCanvas.height
+  uictx.fillStyle = 'rgba(200,200,200,0.9)'
+  uictx.beginPath()
+  uictx.arc 15, 15, 10, 0, Math.PI*2
+  uictx.fill()
+  y = 40
+  uictx.font = 'bold 18px Arial'
+  for mat,color of colors
+    uictx.setShadow 1, 1, 2.5, 'black'
+
+    uictx.fillStyle = 'rgba(200,200,200,0.9)'
+    uictx.beginPath()
+    uictx.arc 15, y, 10, Math.PI/2, Math.PI*3/2
+    width = uictx.measureText(mat).width + 30
+    uictx.lineTo width, y-10
+    uictx.arc 15+width, y, 10, Math.PI*3/2, Math.PI/2, false
+    uictx.closePath()
+    uictx.fill()
+
+    uictx.fillStyle = color
+    uictx.beginPath()
+    uictx.arc 15, y, 6, 0, Math.PI*2
+    uictx.fill()
+
+    uictx.clearShadow()
+    uictx.textBaseline = 'middle'
+    uictx.setShadow 0, 0, 4, '#222'
+    uictx.fillStyle = '#eee'
+    uictx.fillText mat, 35, y
+    y += 25

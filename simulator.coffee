@@ -29,7 +29,7 @@ class Simulator
       if v in ['positive','negative']
         {x,y} = parseXY k
         @engines[k] = {x,y}
-    console.log "Initiating #{Object.keys(@engines).length} engines..."
+    #console.log "Initiating #{Object.keys(@engines).length} engines..."
     @delta = {}
 
   set: (x, y, v) ->

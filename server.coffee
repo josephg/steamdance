@@ -1,8 +1,10 @@
 #http = require 'http'
 
+http = require 'http'
 try
   redis = require 'redis'
-http = require 'http'
+catch e
+  console.log "Couldn't find redis. Your data will not be stored."
 express = require 'express'
 Simulator = require './simulator'
 app = express()
@@ -24,7 +26,7 @@ run = (error, value) ->
     delta = simulator.step()
     for k, v of delta
       # Update db
-      db?.set 'boilerplate', JSON.stringify(simulator.grid)
+      db?.set 'boilerplate-test', JSON.stringify(simulator.grid)
 
       # Update clients
       for c in wss.clients
