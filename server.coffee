@@ -1,10 +1,7 @@
 #http = require 'http'
 
 http = require 'http'
-try
-  redis = require 'redis'
-catch e
-  console.log "Couldn't find redis. Your data will not be stored."
+level = require 'level'
 express = require 'express'
 Simulator = require './simulator'
 app = express()
@@ -14,10 +11,10 @@ server = http.createServer app
 port = 8080
 
 run = (error, value) ->
-  value = JSON.parse value if value
+  #value = JSON.parse value if value
   
   simulator = new Simulator value
-  console.log simulator.grid
+  console.log "#{Object.keys(simulator.grid).length} cells set"
 
   WebSocketServer = require('ws').Server
   wss = new WebSocketServer {server}
@@ -26,7 +23,7 @@ run = (error, value) ->
     delta = simulator.step()
     for k, v of delta
       # Update db
-      db?.set 'boilerplate', JSON.stringify(simulator.grid)
+      db?.put 'boilerplate', simulator.grid
 
       # Update clients
       for c in wss.clients
@@ -55,8 +52,5 @@ run = (error, value) ->
   server.listen port
   console.log "Listening on port #{port}"
 
-if redis?
-  db = redis.createClient()
-  db.on 'ready', -> db.get 'boilerplate', run
-else
-  run null, '{}'
+db = level 'db', valueEncoding:'json'
+db.get 'boilerplate', run
