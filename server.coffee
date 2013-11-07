@@ -26,7 +26,7 @@ run = (error, value) ->
     delta = simulator.step()
     for k, v of delta
       # Update db
-      db?.set 'boilerplate-test', JSON.stringify(simulator.grid)
+      db?.set 'boilerplate', JSON.stringify(simulator.grid)
 
       # Update clients
       for c in wss.clients
