@@ -9,6 +9,72 @@ window.onresize = ->
 window.onresize()
 ctx = canvas.getContext '2d'
 
+audioCtx = new (window.AudioContext || window.webkitAudioContext)?()
+
+mixer = audioCtx?.createGainNode()
+mixer?.connect audioCtx.destination
+
+
+loadSound = (url, callback) ->
+  return callback 'No audio support' unless audioCtx
+
+  request = new XMLHttpRequest()
+  request.open 'GET', url, true
+  request.responseType = 'arraybuffer'
+
+  request.onload = ->
+    audioCtx.decodeAudioData request.response, (buffer) ->
+      #source = audioCtx.createBufferSource()
+      #source.buffer = buffer
+      callback null, buffer
+    , (error) ->
+      callback error
+
+  try
+    request.send()
+  catch e
+    callback e.message
+
+
+###
+sfx =
+  thud: 'thud.wav'
+
+for s, url of sfx
+  do (s, url) ->
+    atom.loadSound "sounds/#{url}", (error, buffer) ->
+      console.error error if error
+      sounds[s] = buffer if buffer
+      didLoad()
+###
+ 
+sounds = {}
+play = (name, time) ->
+  return unless sounds[name] and audioCtx
+  source = audioCtx.createBufferSource()
+  source.buffer = sounds[name]
+  source.connect mixer
+  source.noteOn time ? 0
+  source
+
+muted = false
+toggleMute = ->
+  if !muted
+    muted = true
+    mixer?.gain.value = 0
+    e.volume = 0 for e in document.getElementsByTagName 'audio'
+  else
+    muted = false
+    mixer?.gain.value = 1
+    e.volume = 1 for e in document.getElementsByTagName 'audio'
+
+
+
+loadSound 'sounds/thud.wav', (error, buffer) ->
+  console.log error, buffer
+  sounds.thud = buffer
+
+
 CELL_SIZE = 20
 zoom_level = 1
 size = CELL_SIZE * zoom_level
@@ -22,10 +88,18 @@ ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
   if msg.delta
     for k,v of msg.delta
+      #console.log k, v
+      continue if (v? and grid[k] is v) or (!v? and !grid[k]?)
+
+      switch v
+        when 'shuttle'
+          play 'thud'
+
       if v?
         grid[k] = v
       else
         delete grid[k]
+
     s = new Simulator grid
     pressure = s.getPressure()
     draw()
@@ -84,6 +158,9 @@ document.onkeydown = (e) ->
     scroll_y -= 1
   else if kc == 40 # down
     scroll_y += 1
+
+  if kc == 192
+    return toggleMute()
 
   if kc == 16 # shift
     imminent_select = true
@@ -298,13 +375,15 @@ drawUI = ->
   uictx.fill()
   y = 40
   uictx.font = 'bold 18px Arial'
-  for mat,color of colors
+  for mat, i in ['nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid']
+    color = colors[mat]
     uictx.setShadow 1, 1, 2.5, 'black'
 
     uictx.fillStyle = 'rgba(200,200,200,0.9)'
     uictx.beginPath()
     uictx.arc 15, y, 10, Math.PI/2, Math.PI*3/2
-    width = uictx.measureText(mat).width + 30
+    text = "#{i+1}: #{mat}"
+    width = uictx.measureText(text).width + 30
     uictx.lineTo width, y-10
     uictx.arc 15+width, y, 10, Math.PI*3/2, Math.PI/2, false
     uictx.closePath()
@@ -319,5 +398,5 @@ drawUI = ->
     uictx.textBaseline = 'middle'
     uictx.setShadow 0, 0, 4, '#222'
     uictx.fillStyle = '#eee'
-    uictx.fillText mat, 35, y
+    uictx.fillText text, 35, y
     y += 25
