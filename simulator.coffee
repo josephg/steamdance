@@ -26,10 +26,6 @@ sign = (x) -> if x > 0 then 1 else if x < 0 then -1 else 0
 class Simulator
   constructor: (@grid) ->
     @grid ||= {}
-
-    # Map 'x,y' in a shuttle to dy*3 + dx
-    @lastMoved = {}
-
     @engines = {}
     for k,v of @grid
       if v in ['positive','negative']
@@ -131,8 +127,6 @@ class Simulator
 
     #console.log shuttles, @engines
 
-    nextMoved = {}
-
     for {points, force} in shuttles
       movedY = @tryMove points, 0, force.y# + 1
       dy = if movedY then sign(force.y) else 0
@@ -143,16 +137,11 @@ class Simulator
       else
         dx = 0
 
-      val = dy*3 + dx
-      for {x,y} in points
-        key = "#{x},#{y}"
-        #console.log key, val, @lastMoved[key]
-        if @lastMoved[key] && @lastMoved[key] != val
-          @delta.sound[key] = true
-
-        nextMoved["#{x+dx},#{y+dy}"] = val
-
-    @lastMoved = nextMoved
+      if dx or dy
+        for {x,y} in points
+          #console.log x+2*dx, y+2*dy, @get(x+2*dx, y+2*dy)
+          if @get(x+2*dx, y+2*dy) in [undefined]
+            @delta.sound["#{x},#{y}"] = true
 
     thisDelta = @delta
     @delta = {changed:{}, sound:{}}

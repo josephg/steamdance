@@ -105,7 +105,7 @@ ws.onmessage = (msg) ->
     draw()
 
   if msg.delta?.sound and Object.keys(msg.delta.sound).length
-    play 'thud'
+    setTimeout (-> play 'thud'), 50
 
 scroll_x = 0 # in tile coords
 scroll_y = 0
