@@ -21,22 +21,28 @@ parseXY = (k) ->
   [x,y] = k.split /,/
   {x:parseInt(x), y:parseInt(y)}
 
+sign = (x) -> if x > 0 then 1 else if x < 0 then -1 else 0
+
 class Simulator
   constructor: (@grid) ->
     @grid ||= {}
+
+    # Map 'x,y' in a shuttle to dy*3 + dx
+    @lastMoved = {}
+
     @engines = {}
     for k,v of @grid
       if v in ['positive','negative']
         {x,y} = parseXY k
         @engines[k] = {x,y}
     #console.log "Initiating #{Object.keys(@engines).length} engines..."
-    @delta = {}
+    @delta = {changed:{}, sound:{}}
 
   set: (x, y, v) ->
     k = "#{x},#{y}"
     if v?
       @grid[k] = v
-      @delta[k] = v
+      @delta.changed[k] = v
 
       delete @engines[k]
       if v in ['positive', 'negative']
@@ -45,7 +51,7 @@ class Simulator
       if @grid[k] in ['positive', 'negative']
         delete @engines[k]
       delete @grid[k]
-      @delta[k] = null
+      @delta.changed[k] = null
   get: (x,y) -> @grid["#{x},#{y}"]
 
   tryMove: (points, dx, dy) ->
@@ -125,12 +131,31 @@ class Simulator
 
     #console.log shuttles, @engines
 
+    nextMoved = {}
+
     for {points, force} in shuttles
       movedY = @tryMove points, 0, force.y# + 1
-      @tryMove points, force.x, 0 unless movedY
+      dy = if movedY then sign(force.y) else 0
+
+      unless movedY
+        movedX = @tryMove points, force.x, 0
+        dx = if movedX then sign(force.x) else 0
+      else
+        dx = 0
+
+      val = dy*3 + dx
+      for {x,y} in points
+        key = "#{x},#{y}"
+        #console.log key, val, @lastMoved[key]
+        if @lastMoved[key] && @lastMoved[key] != val
+          @delta.sound[key] = true
+
+        nextMoved["#{x+dx},#{y+dy}"] = val
+
+    @lastMoved = nextMoved
 
     thisDelta = @delta
-    @delta = {}
+    @delta = {changed:{}, sound:{}}
 
     thisDelta
 

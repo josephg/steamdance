@@ -21,16 +21,21 @@ run = (error, value) ->
   si = (time, fn) -> setInterval fn, time
   si 200, ->
     delta = simulator.step()
-    for k, v of delta
+    send = false
+    for k, v of delta.changed
+      send = true
+      break
+    for k, v of delta.sound
+      send = true
+      break
+
+    if send
       # Update db
       db?.put 'boilerplate', simulator.grid
 
       # Update clients
       for c in wss.clients
         c.send JSON.stringify {delta}
-
-      #console.log delta
-      break
 
   wss.on 'connection', (ws) ->
     ws.on 'message', (msg) ->
@@ -47,7 +52,7 @@ run = (error, value) ->
       catch e
         console.log 'invalid JSON', e, msg
 
-    ws.send JSON.stringify({delta:simulator.grid})
+    ws.send JSON.stringify({delta:changed:simulator.grid})
 
   server.listen port
   console.log "Listening on port #{port}"

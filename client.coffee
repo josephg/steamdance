@@ -86,14 +86,14 @@ ws.onerror = (err) ->
   console.err err
 ws.onmessage = (msg) ->
   msg = JSON.parse msg.data
-  if msg.delta
-    for k,v of msg.delta
+  if msg.delta?.changed
+    for k,v of msg.delta.changed
       #console.log k, v
       continue if (v? and grid[k] is v) or (!v? and !grid[k]?)
 
-      switch v
-        when 'shuttle'
-          play 'thud'
+      #switch v
+      #  when 'shuttle'
+      #    play 'thud'
 
       if v?
         grid[k] = v
@@ -103,6 +103,9 @@ ws.onmessage = (msg) ->
     s = new Simulator grid
     pressure = s.getPressure()
     draw()
+
+  if msg.delta?.sound and Object.keys(msg.delta.sound).length
+    play 'thud'
 
 scroll_x = 0 # in tile coords
 scroll_y = 0
