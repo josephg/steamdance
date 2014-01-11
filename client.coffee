@@ -62,15 +62,15 @@ toggleMute = ->
   if !muted
     muted = true
     mixer?.gain.value = 0
-    e.volume = 0 for e in document.getElementsByTagName 'audio'
   else
     muted = false
     mixer?.gain.value = 1
-    e.volume = 1 for e in document.getElementsByTagName 'audio'
+
+# Start it muted.
+toggleMute()
 
 
-
-loadSound 'sounds/thud.wav', (error, buffer) ->
+loadSound '/sounds/thud.wav', (error, buffer) ->
   console.log error, buffer
   sounds.thud = buffer
 
@@ -81,7 +81,7 @@ size = CELL_SIZE * zoom_level
 
 grid = {}
 pressure = {}
-ws = new WebSocket 'ws://' + window.location.host
+ws = new WebSocket 'ws://' + window.location.host + window.location.pathname
 ws.onerror = (err) ->
   console.err err
 ws.onmessage = (msg) ->
