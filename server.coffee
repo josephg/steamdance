@@ -80,7 +80,10 @@ wss.on 'connection', (client) ->
   return addClient(worldname, client) if worlds[worldname]
 
   db.get worldname, (error, value) ->
-    return console.error(error) if error
+    #return console.error('Error loading world', error.stack, value) if error
+    if !value? # Lets just hope its a world-not-found situation
+      console.log "Created new world #{worldname}"
+      value = {}
 
     # World may have loaded while we were loading.
     if !worlds[worldname]
