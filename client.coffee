@@ -382,7 +382,11 @@ drawUI = ->
     color = colors[mat]
     uictx.setShadow 1, 1, 2.5, 'black'
 
-    uictx.fillStyle = 'rgba(200,200,200,0.9)'
+    uictx.fillStyle = if (placing ? 'solid') is mat
+      'rgba(200,200,200,0.9)'
+    else
+      'rgba(120,120,120,0.9)'
+
     uictx.beginPath()
     uictx.arc 15, y, 10, Math.PI/2, Math.PI*3/2
     text = "#{i+1}: #{mat}"
