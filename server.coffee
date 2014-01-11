@@ -37,7 +37,8 @@ addClient = (worldname, client) ->
 
   client.send JSON.stringify({delta:changed:world.simulator.grid})
   world.clients.push client
-  console.log "connection #{world.clients.length} on world #{worldname}"
+  address = client.upgradeReq.connection.remoteAddress
+  console.log "connection #{world.clients.length} on world #{worldname} from #{address}"
 
   remove = ->
     return unless world
