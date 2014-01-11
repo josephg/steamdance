@@ -10,6 +10,9 @@ app.use express.static("#{__dirname}/")
 server = http.createServer app
 port = 8080
 
+worldname = process.argv[2] ? 'boilerplate'
+console.log "Opening file #{worldname}"
+
 run = (error, value) ->
   #value = JSON.parse value if value
   
@@ -31,7 +34,7 @@ run = (error, value) ->
 
     if send
       # Update db
-      db?.put 'boilerplate', simulator.grid
+      db?.put worldname, simulator.grid
 
       # Update clients
       for c in wss.clients
@@ -58,4 +61,4 @@ run = (error, value) ->
   console.log "Listening on port #{port}"
 
 db = level 'db', valueEncoding:'json'
-db.get 'boilerplate', run
+db.get worldname, run
