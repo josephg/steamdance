@@ -16,7 +16,7 @@ app.get '/world/:worldname', (req, res) ->
   res.send index
 
 server = http.createServer app
-port = 8080
+port = 8011
 
 #worldname = process.argv[2] ? 'boilerplate'
 #console.log "Opening file #{worldname}"
