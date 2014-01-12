@@ -407,3 +407,15 @@ drawUI = ->
     uictx.fillStyle = '#eee'
     uictx.fillText text, 35, y
     y += 25
+
+window.addEventListener 'copy', (e) ->
+  if selection
+    console.log e.clipboardData.setData 'text', JSON.stringify selection
+  e.preventDefault()
+
+window.addEventListener 'paste', (e) ->
+  data = e.clipboardData.getData 'text'
+  if data
+    try
+      selection = JSON.parse data
+
