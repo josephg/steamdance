@@ -122,11 +122,12 @@ copySubgrid = (rect) ->
 colors =
   solid: 'black'
   nothing: 'white'
-  thinshuttle: 'rgb(255,0,255)'
-  shuttle: 'rgb(128,0,128)'
+  thinshuttle: '#f0f'
+  shuttle: '#808'
   negative: 'red'
-  positive: 'rgb(0,255,0)'
-  thinsolid: 'rgb(128,128,128)'
+  positive: '#0f0'
+  thinsolid: '#888'
+  bridge: '#880'
 
 placing = 'nothing'
 imminent_select = false
@@ -179,7 +180,7 @@ document.onkeydown = (e) ->
     mirror() if selection
 
   pressed = ({
-    # 1-7
+    # 1-8
     49: 'nothing'
     50: 'solid'
     51: 'positive'
@@ -187,14 +188,16 @@ document.onkeydown = (e) ->
     53: 'shuttle'
     54: 'thinshuttle'
     55: 'thinsolid'
+    56: 'bridge'
 
     80: 'positive' # p
     78: 'negative' # n
     83: 'shuttle' # s
     65: 'thinshuttle' # a
     69: 'nothing' # e
-    66: 'thinsolid' # b
+    71: 'thinsolid' # g
     68: 'solid' # d
+    66: 'bridge' # b
   })[kc]
   if pressed?
     placing = if pressed is 'solid' then null else pressed
@@ -378,7 +381,7 @@ drawUI = ->
   uictx.fill()
   y = 40
   uictx.font = 'bold 18px Arial'
-  for mat, i in ['nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid']
+  for mat, i in ['nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid', 'bridge']
     color = colors[mat]
     uictx.setShadow 1, 1, 2.5, 'black'
 

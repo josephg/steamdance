@@ -1,15 +1,15 @@
 cardinal_dirs = [[0,1],[0,-1],[1,0],[-1,0]]
-fill = (initial_squares, f) ->
+fill = (initial_square, f) ->
 	visited = {}
-	visited["#{x},#{y}"] = true for {x, y} in initial_squares
-	to_explore = initial_squares.slice()
+	visited["#{initial_square.x},#{initial_square.y}"] = true
+	to_explore = [initial_square]
 	hmm = (x,y) ->
 		k = "#{x},#{y}"
 		if not visited[k]
 			visited[k] = true
 			to_explore.push {x,y}
 	while n = to_explore.shift()
-		ok = f n.x, n.y
+		ok = f n.x, n.y, hmm
 		if ok
 			hmm n.x+1, n.y
 			hmm n.x-1, n.y
@@ -72,11 +72,24 @@ class Simulator
     pressure = {}
     for k,v of @engines
       direction = if 'positive' is @get v.x, v.y then 1 else -1
-      fill [v], (x, y) =>
+      fill v, (x, y, hmm) =>
         cell = @get x, y
         cell = 'nothing' if x is v.x and y is v.y
         if cell in ['nothing', 'thinshuttle', 'thinsolid']
           pressure["#{x},#{y}"] = (pressure["#{x},#{y}"] ? 0) + direction
+
+          # Propogate pressure through bridges
+          for [dx,dy] in cardinal_dirs
+            _x = x + dx; _y = y + dy
+
+            if @get(_x, _y) is 'bridge'
+              while (c = @get _x, _y) is 'bridge'
+                pressure["#{_x},#{_y}"] = (pressure["#{_x},#{_y}"] ? 0) + direction
+                _x += dx; _y += dy
+              
+              if c in ['nothing', 'thinshuttle', 'thinsolid']
+                hmm _x, _y
+
           return true
         false
     pressure
@@ -91,7 +104,7 @@ class Simulator
       shuttles.push (s = {points:[], force:{x:0,y:0}})
 
       # Flood fill the shuttle
-      fill [{x,y}], (x, y) =>
+      fill {x,y}, (x, y) =>
         if @get(x, y) in ['shuttle', 'thinshuttle']
           shuttleMap["#{x},#{y}"] = s
           s.points.push {x,y}
@@ -108,17 +121,32 @@ class Simulator
 
     for k,v of @engines
       direction = if 'positive' is @get v.x, v.y then 1 else -1
-      fill [v], (x, y) =>
+      fill v, (x, y, hmm) =>
         cell = @get x, y
         cell = 'nothing' if x is v.x and y is v.y
 
         switch cell
           when 'nothing', 'thinshuttle', 'thinsolid'
             for [dx,dy] in cardinal_dirs
-              s = getShuttle x+dx, y+dy
-              if s
+              _x = x + dx; _y = y + dy
+
+              if (s = getShuttle _x, _y)
                 s.force.x += dx * direction
                 s.force.y += dy * direction
+
+              else if @get(_x, _y) is 'bridge'
+                _x += dx; _y += dy
+                while (c = @get _x, _y) is 'bridge'
+                  _x += dx; _y += dy
+                
+                # And now its not a bridge...
+                if (s = getShuttle _x, _y)
+                  s.force.x += dx * direction
+                  s.force.y += dy * direction
+                else if c in ['nothing', 'thinshuttle', 'thinsolid']
+                  hmm _x, _y
+
+
             #pressure[[x,y]] = (pressure[[x,y]] ? 0) + direction
 
             true
