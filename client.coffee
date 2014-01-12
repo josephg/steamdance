@@ -328,7 +328,7 @@ drawReal = ->
 
       ctx.fillRect px, py, size, size
       if (p = pressure[k]) and p != 0
-        ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.4)' else 'rgba(0,255,0,0.4)'
+        ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
         ctx.fillRect px, py, size, size
 
   mx = mouse.x
