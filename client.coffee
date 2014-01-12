@@ -127,7 +127,7 @@ colors =
   negative: 'red'
   positive: '#0f0'
   thinsolid: '#888'
-  bridge: '#880'
+  bridge: '#08f'
 
 placing = 'nothing'
 imminent_select = false
