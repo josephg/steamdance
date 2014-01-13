@@ -224,16 +224,35 @@ window.onmousewheel = (e) ->
   e.preventDefault()
   draw()
 
+line = (x0, y0, x1, y1, f) ->
+  dx = Math.abs x1-x0
+  dy = Math.abs y1-y0
+  ix = if x0 < x1 then 1 else -1
+  iy = if y0 < y1 then 1 else -1
+  e = 0
+  for i in [0..dx+dy]
+    f x0, y0
+    e1 = e + dy
+    e2 = e - dx
+    if Math.abs(e1) < Math.abs(e2)
+      x0 += ix
+      e = e1
+    else
+      y0 += iy
+      e = e2
+  return
 paint = ->
-  {tx, ty} = screenToWorld mouse.x, mouse.y
+  {tx, ty} = mouse
+  {tx:fromtx, ty:fromty} = mouse.from
 
   delta = {}
-  delta[[tx,ty]] = placing
+  line fromtx, fromty, tx, ty, (x, y) ->
+    delta[[x,y]] = placing
+    if placing?
+      grid[[x,y]] = placing
+    else
+      delete grid[[x,y]]
   ws.send JSON.stringify {delta}
-  if placing?
-    grid[[tx,ty]] = placing
-  else
-    delete grid[[tx,ty]]
 
 paste = ->
   throw new Error 'tried to paste without a selection' unless selection
@@ -256,8 +275,10 @@ window.onblur = ->
   mouse.mode = null
   imminent_select = false
 document.onmousemove = (e) ->
+  mouse.from = {tx: mouse.tx, ty: mouse.ty}
   mouse.x = e.pageX
   mouse.y = e.pageY
+  {tx:mouse.tx, ty:mouse.ty} = screenToWorld mouse.x, mouse.y
   switch mouse.mode
     when 'paint' then paint()
     when 'select' then selectedB = screenToWorld mouse.x, mouse.y
@@ -272,6 +293,7 @@ document.onmousedown = (e) ->
     paste()
   else
     mouse.mode = 'paint'
+    mouse.from = {tx:mouse.tx, ty:mouse.ty}
     paint()
   draw()
 document.onmouseup = ->
