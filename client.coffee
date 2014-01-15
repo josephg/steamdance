@@ -134,6 +134,8 @@ imminent_select = false
 selectedA = selectedB = null
 selection = null
 
+show_gridlines = no
+
 flip = (dir) ->
   return unless selection
   new_selection = {tw:tw = selection.tw, th:th = selection.th}
@@ -154,30 +156,35 @@ mirror = ->
 
 document.onkeydown = (e) ->
   kc = e.keyCode
-  if kc == 37 # left
-    scroll_x -= 1
-  else if kc == 39 # right
-    scroll_x += 1
-  else if kc == 38 # up
-    scroll_y -= 1
-  else if kc == 40 # down
-    scroll_y += 1
 
-  if kc == 192
-    return toggleMute()
+  switch kc
+    when 37 # left
+      scroll_x -= 1
+    when 39 # right
+      scroll_x += 1
+    when 38 # up
+      scroll_y -= 1
+    when 40 # down
+      scroll_y += 1
 
-  if kc == 16 # shift
-    imminent_select = true
+    when 192 # ~
+      toggleMute()
 
-  if kc == 27 # esc
-    selection = null
+    when 16 # shift
+      imminent_select = true
+    when 27 # esc
+      selection = null
 
-  if kc == 88 # x
-    flip 'x' if selection
-  else if kc == 89 # y
-    flip 'y' if selection
-  else if kc == 77 # m
-    mirror() if selection
+    when 88 # x
+      flip 'x' if selection
+    when 89 # y
+      flip 'y' if selection
+    when 77 # m
+      mirror() if selection
+
+    when 9 # tab
+      show_gridlines = !show_gridlines
+      e.preventDefault()
 
   pressed = ({
     # 1-8
@@ -363,6 +370,11 @@ drawReal = ->
     sb = selectedB
   else if imminent_select
     sa = sb = {tx:mtx, ty:mty}
+
+  if show_gridlines
+    ctx.fillStyle = 'rgba(255,255,127,0.5)'
+    ctx.fillRect mpx + size/4, 0, size/2, canvas.height
+    ctx.fillRect 0, mpy + size/4, canvas.width, size/2
 
   if sa
     {tx, ty, tw, th} = enclosingRect sa, sb
