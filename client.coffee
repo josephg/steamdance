@@ -132,6 +132,7 @@ colors =
 placing = 'nothing'
 imminent_select = false
 selectedA = selectedB = null
+selectOffset = null
 selection = null
 
 show_gridlines = no
@@ -173,7 +174,7 @@ document.onkeydown = (e) ->
     when 16 # shift
       imminent_select = true
     when 27 # esc
-      selection = null
+      selection = selectOffset = null
 
     when 88 # x
       flip 'x' if selection
@@ -264,6 +265,8 @@ paint = ->
 paste = ->
   throw new Error 'tried to paste without a selection' unless selection
   {tx:mtx, ty:mty} = screenToWorld mouse.x, mouse.y
+  mtx -= selectOffset.tx
+  mty -= selectOffset.ty
   delta = {}
   for y in [0...selection.th]
     for x in [0...selection.tw]
@@ -293,7 +296,7 @@ document.onmousemove = (e) ->
 document.onmousedown = (e) ->
   if imminent_select
     mouse.mode = 'select'
-    selection = null
+    selection = selectOffset = null
     selectedA = screenToWorld mouse.x, mouse.y
     selectedB = selectedA
   else if selection
@@ -306,6 +309,10 @@ document.onmousedown = (e) ->
 document.onmouseup = ->
   if mouse.mode is 'select'
     selection = copySubgrid enclosingRect selectedA, selectedB
+    selectOffset =
+      tx:selectedB.tx - Math.min selectedA.tx, selectedB.tx
+      ty:selectedB.ty - Math.min selectedA.ty, selectedB.ty
+
   mouse.mode = null
   imminent_select = false
 
@@ -388,13 +395,13 @@ drawReal = ->
     ctx.globalAlpha = 0.8
     for y in [0...selection.th]
       for x in [0...selection.tw]
-        {px, py} = worldToScreen x+mtx,y+mty
+        {px, py} = worldToScreen x+mtx-selectOffset.tx, y+mty-selectOffset.ty
         if px+size >= 0 and px < canvas.width and py+size >= 0 and py < canvas.height
           v = selection[[x,y]]
           ctx.fillStyle = if v then colors[v] else 'black'
           ctx.fillRect px, py, size, size
     ctx.strokeStyle = 'rgba(0,255,255,0.5)'
-    ctx.strokeRect mpx, mpy, selection.tw*size, selection.th*size
+    ctx.strokeRect mpx - selectOffset.tx*size, mpy - selectOffset.ty*size, selection.tw*size, selection.th*size
     ctx.globalAlpha = 1
   else
     ctx.fillStyle = colors[placing ? 'solid']
@@ -455,4 +462,5 @@ window.addEventListener 'paste', (e) ->
   if data
     try
       selection = JSON.parse data
+      selectOffset = {tx:0, ty:0}
 
