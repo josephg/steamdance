@@ -11,7 +11,7 @@ ctx = canvas.getContext '2d'
 
 audioCtx = new (window.AudioContext || window.webkitAudioContext)?()
 
-mixer = audioCtx?.createGainNode()
+mixer = audioCtx?.createGain()
 mixer?.connect audioCtx.destination
 
 
@@ -54,7 +54,8 @@ play = (name, time) ->
   source = audioCtx.createBufferSource()
   source.buffer = sounds[name]
   source.connect mixer
-  source.noteOn time ? 0
+  source.start time ? 0
+  #source.noteOn time ? 0
   source
 
 muted = false
@@ -424,7 +425,7 @@ drawUI = ->
   uictx.font = 'bold 18px Arial'
   for mat, i in ['nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid', 'bridge']
     color = colors[mat]
-    uictx.setShadow 1, 1, 2.5, 'black'
+    uictx.setShadow? 1, 1, 2.5, 'black'
 
     uictx.fillStyle = if (placing ? 'solid') is mat
       'rgba(200,200,200,0.9)'
@@ -445,9 +446,9 @@ drawUI = ->
     uictx.arc 15, y, 6, 0, Math.PI*2
     uictx.fill()
 
-    uictx.clearShadow()
+    uictx.clearShadow?()
     uictx.textBaseline = 'middle'
-    uictx.setShadow 0, 0, 4, '#222'
+    uictx.setShadow? 0, 0, 4, '#222'
     uictx.fillStyle = '#eee'
     uictx.fillText text, 35, y
     y += 25
