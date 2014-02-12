@@ -5,7 +5,8 @@ window.onresize = ->
   uiCanvas.width = canvas.width = window.innerWidth
   uiCanvas.height = canvas.height = window.innerHeight
   draw?()
-  drawUI?()
+  #drawUI?()
+  drawUIBoxes?()
 window.onresize()
 ctx = canvas.getContext '2d'
 
@@ -71,10 +72,12 @@ toggleMute = ->
 toggleMute()
 
 
+###
+# Loading this sound crashes iOS safari
 loadSound '/sounds/thud.wav', (error, buffer) ->
   console.log error, buffer
   sounds.thud = buffer
-
+###
 
 CELL_SIZE = 20
 zoom_level = 1
@@ -251,8 +254,11 @@ line = (x0, y0, x1, y1, f) ->
       e = e2
   return
 paint = ->
+  throw 'Invalid placing' if placing is 'move'
   {tx, ty} = mouse
   {tx:fromtx, ty:fromty} = mouse.from
+  fromtx ?= tx
+  fromty ?= ty
 
   delta = {}
   line fromtx, fromty, tx, ty, (x, y) ->
@@ -281,7 +287,7 @@ paste = ->
           delete grid[[tx,ty]]
   ws.send JSON.stringify {delta}
 
-mouse = {x:0,y:0, mode:null}
+mouse = {x:null,y:null, mode:null}
 window.onblur = ->
   mouse.mode = null
   imminent_select = false
@@ -303,9 +309,10 @@ document.onmousedown = (e) ->
   else if selection
     paste()
   else
-    mouse.mode = 'paint'
-    mouse.from = {tx:mouse.tx, ty:mouse.ty}
-    paint()
+    if !selectMat()
+      mouse.mode = 'paint'
+      mouse.from = {tx:mouse.tx, ty:mouse.ty}
+      paint()
   draw()
 document.onmouseup = ->
   if mouse.mode is 'select'
@@ -325,6 +332,7 @@ enclosingRect = (a, b) ->
 
 # given pixel x,y returns tile x,y
 screenToWorld = (px, py) ->
+  return {tx:null, ty:null} unless px?
   # first, the top-left pixel of the screen is at |_ scroll * size _| px from origin
   px += Math.floor(scroll_x * size)
   py += Math.floor(scroll_y * size)
@@ -335,6 +343,7 @@ screenToWorld = (px, py) ->
 
 # given tile x,y returns the pixel x,y,w,h at which the tile resides on the screen.
 worldToScreen = (tx, ty) ->
+  return {px:null, py:null} unless tx?
   px: tx * size - Math.floor(scroll_x * size)
   py: ty * size - Math.floor(scroll_y * size)
 
@@ -352,7 +361,8 @@ draw = ->
   needsDraw = true
   requestAnimationFrame ->
     drawReal()
-    drawUI()
+    #drawUI()
+    drawUIBoxes()
     needsDraw = false
 drawReal = ->
   ctx.fillStyle = 'black'
@@ -404,7 +414,7 @@ drawReal = ->
     ctx.strokeStyle = 'rgba(0,255,255,0.5)'
     ctx.strokeRect mpx - selectOffset.tx*size, mpy - selectOffset.ty*size, selection.tw*size, selection.th*size
     ctx.globalAlpha = 1
-  else
+  else if mpx?
     ctx.fillStyle = colors[placing ? 'solid']
     ctx.fillRect mpx + size/4, mpy + size/4, size/2, size/2
 
@@ -453,6 +463,62 @@ drawUI = ->
     uictx.fillText text, 35, y
     y += 25
 
+
+UIBOXSIZE = 80
+UIBORDER = 13
+
+uiboxes = []
+
+do ->
+  boxes = ['move', 'nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid', 'bridge']
+
+  x = canvas.width / 2 - (boxes.length / 2) * UIBOXSIZE
+  y = canvas.height - 100
+  for mat, i in boxes
+    uiboxes.push {x, y, mat}
+    x += UIBOXSIZE
+
+drawUIBoxes = ->
+  uictx = uiCanvas.getContext '2d'
+  uictx.clearRect 0, 0, uiCanvas.width, uiCanvas.height
+  uictx.fillStyle = 'rgba(200,200,200,0.9)'
+
+  uictx.font = 'bold 14px Arial'
+  for {x, y, mat}, i in uiboxes
+    color = colors[mat] ? 'yellow'
+
+    uictx.clearShadow?()
+    uictx.fillStyle = if (placing ? 'solid') is mat
+      'rgba(200,200,200,0.9)'
+    else
+      'rgba(120,120,120,0.9)'
+
+    uictx.fillRect x, y, UIBOXSIZE, UIBOXSIZE
+
+    uictx.setShadow? 1, 1, 2.5, 'black'
+
+    uictx.fillStyle = color
+    uictx.fillRect x+UIBORDER, y+UIBORDER, UIBOXSIZE-2*UIBORDER, UIBOXSIZE-2*UIBORDER
+
+    text = mat
+    #width = uictx.measureText(text).width
+    uictx.textAlign = 'center'
+    uictx.textBaseline = 'middle'
+
+    if mat is 'nothing'
+      uictx.clearShadow?()
+    else
+      uictx.setShadow? 0, 0, 4, '#222'
+
+    uictx.fillStyle = if mat is 'nothing'
+      '#888'
+    else
+      '#eee'
+    #uictx.fillText "#{i}", x + UIBOXSIZE/2, y + UIBOXSIZE/2 - 15
+    uictx.fillText mat, x + UIBOXSIZE/2, y + UIBOXSIZE/2
+
+
+
 window.addEventListener 'copy', (e) ->
   if selection
     console.log e.clipboardData.setData 'text', JSON.stringify selection
@@ -464,4 +530,83 @@ window.addEventListener 'paste', (e) ->
     try
       selection = JSON.parse data
       selectOffset = {tx:0, ty:0}
+
+
+# IOS
+
+selectMat = ->
+  for {x, y, mat} in uiboxes
+    if x <= mouse.x < x + UIBOXSIZE and y <= mouse.y < y + UIBOXSIZE
+      placing = if mat is 'solid' then null else mat
+      #mouse.mode = if mat is 'move' then null else 'paint'
+      return yes
+
+  no
+
+
+setMouse = (e) ->
+  mouse.x = e.pageX
+  mouse.y = e.pageY
+  {tx:mouse.tx, ty:mouse.ty} = screenToWorld mouse.x, mouse.y
+
+selectingBox = no
+
+window.ontouchstart = (e) ->
+  setMouse e
+  mouse.from = {x: mouse.x, y: mouse.y, tx: mouse.tx, ty: mouse.ty}
+
+
+  if selectMat()
+    selectingBox = yes
+  else if mouse.mode is 'paint'
+    paint()
+
+  if placing is 'move'
+    mouse.mode = 'move'
+  else
+    mouse.mode = 'paint'
+  draw()
+  e.preventDefault()
+
+window.ontouchend = (e) ->
+  selectingBox = no
+  e.preventDefault()
+  mouse.x = mouse.y = mouse.tx = mouse.ty = null
+  draw()
+
+window.ontouchmove = (e) ->
+  # Don't make the UI bounce around
+  e.preventDefault()
+
+  mouse.from = {x: mouse.x, y: mouse.y, tx: mouse.tx, ty: mouse.ty}
+  setMouse e
+  #mouse.from.x ?= mouse.x
+  #mouse.from.y ?= mouse.y
+
+  if selectingBox
+    selectMat()
+    draw()
+  else
+    switch mouse.mode
+      when 'paint' then paint()
+      when 'select' then selectedB = screenToWorld mouse.x, mouse.y # inaccessable
+      when 'move'
+        scroll_x -= (mouse.x - mouse.from.x) / size if mouse.from.x?
+        scroll_y -= (mouse.y - mouse.from.y) / size if mouse.from.y?
+    draw()
+
+# The size when the pinch gesture started
+basesize = 0
+window.ongesturestart = (e) ->
+  basesize = size
+
+window.ongesturechange = (e) ->
+  return if selectingBox
+  oldsize = size
+
+  size = e.scale * basesize
+
+  scroll_x += e.pageX / oldsize - e.pageX / size
+  scroll_y += e.pageY / oldsize - e.pageY / size
+
 
