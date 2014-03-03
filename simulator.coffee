@@ -55,8 +55,11 @@ class Simulator
     dy = if dy < 0 then -1 else if dy > 0 then 1 else 0
     throw new Error('one at a time, fellas') if dx and dy
     return unless dx or dy
-    for {x,y} in points
-      if @get(x+dx, y+dy) not in ['nothing', 'shuttle', 'thinshuttle']
+    isMe = (qx,qy) ->
+      return true for {x,y} in points when x == qx and y == qy
+      false
+    for {x,y} in points when not isMe(x+dx,y+dy)
+      if @get(x+dx, y+dy) isnt 'nothing'
         return false
 
     shuttle = {}
