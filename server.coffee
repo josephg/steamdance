@@ -4,11 +4,13 @@ http = require 'http'
 level = require 'level'
 express = require 'express'
 path = require 'path'
-Simulator = require './simulator'
+Simulator = require 'boilerplate-sim'
 fs = require 'fs'
 
 app = express()
-app.use express.static("#{__dirname}/")
+# For simulator.js
+app.use express.static path.dirname(require.resolve('boilerplate-sim'))
+app.use express.static "#{__dirname}/public"
 
 index = fs.readFileSync 'client.html', 'utf8'
 app.get '/', (req, res) -> res.redirect '/world/boilerplate'

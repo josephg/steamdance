@@ -1,4 +1,4 @@
 .PHONY: all
 
 all:
-	coffee -cbw *.coffee
+	coffee -cbw public

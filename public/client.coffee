@@ -15,6 +15,7 @@ audioCtx = new (window.AudioContext || window.webkitAudioContext)?()
 mixer = audioCtx?.createGain()
 mixer?.connect audioCtx.destination
 
+{parseXY} = Simulator
 
 loadSound = (url, callback) ->
   return callback 'No audio support' unless audioCtx
@@ -89,6 +90,7 @@ ws = new WebSocket 'ws://' + window.location.host + window.location.pathname
 ws.onerror = (err) ->
   console.err err
 ws.onmessage = (msg) ->
+  console.log msg
   msg = JSON.parse msg.data
   if msg.delta?.changed
     for k,v of msg.delta.changed
@@ -346,14 +348,6 @@ worldToScreen = (tx, ty) ->
   return {px:null, py:null} unless tx?
   px: tx * size - Math.floor(scroll_x * size)
   py: ty * size - Math.floor(scroll_y * size)
-
-requestAnimationFrame = window.requestAnimationFrame or
-  window.webkitRequestAnimationFrame or
-  window.mozRequestAnimationFrame or
-  window.oRequestAnimationFrame or
-  window.msRequestAnimationFrame or
-  (callback) ->
-    window.setTimeout(callback, 1000 / 60)
 
 needsDraw = false
 draw = ->

@@ -8,9 +8,10 @@
   },
   "main": "server.coffee",
   "dependencies": {
-    "level":"*",
-    "express":"*",
-    "ws":"*"
+    "level": "*",
+    "express": "*",
+    "ws": "*",
+    "boilerplate-sim": "^1.0.3"
   },
   "devDependencies": {},
   "optionalDependencies": {},
