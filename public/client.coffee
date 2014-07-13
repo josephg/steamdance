@@ -4,6 +4,8 @@ canvas.parentNode.appendChild(uiCanvas = document.createElement('canvas'))
 window.onresize = ->
   uiCanvas.width = canvas.width = window.innerWidth
   uiCanvas.height = canvas.height = window.innerHeight
+  calcUIBoxes?()
+
   draw?()
   #drawUI?()
   drawUIBoxes?()
@@ -463,11 +465,12 @@ UIBORDER = 13
 
 uiboxes = []
 
-do ->
+do calcUIBoxes = ->
   boxes = ['move', 'nothing', 'solid', 'positive', 'negative', 'shuttle', 'thinshuttle', 'thinsolid', 'bridge']
 
   x = canvas.width / 2 - (boxes.length / 2) * UIBOXSIZE
   y = canvas.height - 100
+  uiboxes.length = 0
   for mat, i in boxes
     uiboxes.push {x, y, mat}
     x += UIBOXSIZE
