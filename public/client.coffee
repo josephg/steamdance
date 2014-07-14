@@ -69,7 +69,6 @@ do ->
     Boilerplate.changeTool element.id
 
   Boilerplate.onToolChanged = (newTool) ->
-    console.log 'onToolChanged', newTool
     if selected
       selected.className = ''
 

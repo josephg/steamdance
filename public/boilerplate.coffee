@@ -3,15 +3,26 @@
 
 class Boilerplate
   @colors =
-    #solid: 'hsl(29, 100%, 7%)'
+    ###
     solid: 'hsl(184, 49%, 7%)'
     nothing: 'white'
-    shuttle: 'hsl(44, 87%, 52%)'
-    thinshuttle: 'hsl(44, 87%, 72%)'
-    negative: 'hsl(17, 98%, 36%)'
+    shuttle: "hsl(305, 98%, 35%)"
+    thinshuttle: "hsl(305, 79%, 73%)"
+    negative: "hsl(0, 74%, 52%)"
     positive: 'hsl(170, 49%, 51%)'
-    thinsolid: 'lightgrey'
+    thinsolid: 'hsl(0, 0%, 71%)'
     bridge: '#08f'
+    ###
+
+    bridge: "#2D96D6"
+    negative: "#D65A2B"
+    nothing: "white"
+    positive: "#5ECC5E"
+    shuttle: "9429BF"
+    solid: "hsl(184, 49%, 7%)"
+    thinshuttle: "hsl(283, 89%, 75%)"
+    thinsolid: "hsl(0, 0%, 71%)"
+
 
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
