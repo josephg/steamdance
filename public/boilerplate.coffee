@@ -41,11 +41,11 @@ class Boilerplate
 
   # If you have a whole page of boilerplate instances, they should share the
   # same tool selection.
-  activeTool = 'nothing'
+  @activeTool = 'nothing'
 
   @changeTool = (newTool) ->
-    activeTool = if newTool is 'solid' then null else newTool
-    @onToolChanged? activeTool
+    @activeTool = if newTool is 'solid' then null else newTool
+    @onToolChanged? @activeTool
 
   @addKeyListener = (el) ->
     el.addEventListener 'keydown', (e) =>
@@ -251,14 +251,15 @@ class Boilerplate
     @draw()
 
   paint: ->
-    throw 'Invalid placing' if activeTool is 'move'
+    throw 'Invalid placing' if Boilerplate.activeTool is 'move'
     {tx, ty} = @mouse
     {tx:fromtx, ty:fromty} = @mouse.from
     fromtx ?= tx
     fromty ?= ty
 
     line fromtx, fromty, tx, ty, (x, y) =>
-      @simulator.set x, y, activeTool
+      @simulator.set x, y, Boilerplate.activeTool
+      @onEdit? x, y, Boilerplate.activeTool
 
   #########################
   # SELECTION             #
@@ -295,12 +296,14 @@ class Boilerplate
     {tx:mtx, ty:mty} = @screenToWorld @mouse.x, @mouse.y
     mtx -= @selectOffset.tx
     mty -= @selectOffset.ty
+
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
         tx = mtx+x
         ty = mty+y
         if (s = @selection[[x,y]]) != @simulator.get tx,ty
           @simulator.set tx, ty, s
+          @onEdit? tx, ty, s
 
   copy: (e) ->
     #console.log 'copy'
@@ -396,7 +399,7 @@ class Boilerplate
       @ctx.globalAlpha = 1
     else if mpx?
       # Mouse hover
-      @ctx.fillStyle = Boilerplate.colors[activeTool ? 'solid']
+      @ctx.fillStyle = Boilerplate.colors[Boilerplate.activeTool ? 'solid']
       @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
       @ctx.strokeStyle = if @simulator.get(mtx, mty) then 'black' else 'white'

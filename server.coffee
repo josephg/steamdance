@@ -12,7 +12,7 @@ app = express()
 app.use express.static path.dirname(require.resolve('boilerplate-sim'))
 app.use express.static "#{__dirname}/public"
 
-index = fs.readFileSync 'client.html', 'utf8'
+index = fs.readFileSync 'public/client.html', 'utf8'
 app.get '/', (req, res) -> res.redirect '/world/boilerplate'
 app.get '/world/:worldname', (req, res) ->
   res.send index
@@ -37,7 +37,7 @@ addClient = (worldname, client) ->
   # Should error or something I guess. the client just won't work at all.
   return if !world
 
-  client.send JSON.stringify({delta:changed:world.simulator.grid})
+  client.send JSON.stringify({initial:world.simulator.grid})
   world.clients.push client
   address = client.upgradeReq.connection.remoteAddress
   console.log "connection #{world.clients.length} on world #{worldname} from #{address}"
