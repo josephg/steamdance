@@ -8,9 +8,15 @@ bp = new Boilerplate el, sim
 window.onresize = ->
   bp.resizeTo(window.innerWidth, window.innerHeight)
 
+isEmpty = (obj) ->
+  return false for k of obj
+  return true
+
 setInterval =>
-  sim.step()
-  bp.draw()
+  delta = sim.step()
+  if !isEmpty delta.changed
+    console.log 'draw', delta.changed
+    bp.draw()
 , 200
 
 window.addEventListener 'copy', (e) ->
