@@ -1,0 +1,46 @@
+
+sim = new Simulator()
+
+el = document.getElementById 'bp'
+
+bp = new Boilerplate el, sim
+
+window.onresize = ->
+  bp.resizeTo(window.innerWidth, window.innerHeight)
+
+setInterval =>
+  sim.step()
+  bp.draw()
+, 200
+
+window.addEventListener 'copy', (e) ->
+  document.activeElement?.boilerplate?.copy e
+
+window.addEventListener 'paste', (e) ->
+  document.activeElement?.boilerplate?.paste e
+
+# putting autofocus in the html doesn't cut it for some reason.
+el.focus()
+
+Boilerplate.addKeyListener window
+
+do ->
+  panel = document.getElementsByClassName('toolpanel')[0]
+
+  selected = null
+  panel.onclick = (e) ->
+    element = e.target
+    return if element is panel
+
+    Boilerplate.changeTool element.id
+
+  Boilerplate.onToolChanged = (newTool) ->
+    if selected
+      selected.className = ''
+
+    e = document.getElementById (newTool || 'solid')
+    return unless e
+    e.className = 'selected'
+    selected = e
+
+

@@ -1,3 +1,13 @@
+#########################
+#                       #
+#  DEPRECATION WARNING  #
+#                       #
+#########################
+
+# This code is hella deprecated. The new version is super clean and stuff, and
+# you should well use it.
+
+
 canvas = document.getElementsByTagName('canvas')[0]
 canvas.parentNode.appendChild(uiCanvas = document.createElement('canvas'))
 
@@ -127,7 +137,19 @@ copySubgrid = (rect) ->
         subgrid[[x-tx,y-ty]] = s
   subgrid
 
+
 colors =
+  solid: 'hsl(184, 49%, 7%)'
+  nothing: 'white'
+  shuttle: 'hsl(44, 87%, 52%)'
+  thinshuttle: 'hsl(44, 87%, 72%)'
+  negative: 'hsl(17, 98%, 36%)'
+  positive: 'hsl(170, 49%, 51%)'
+  thinsolid: 'lightgrey'
+  bridge: '#08f'
+
+
+###
   solid: 'black'
   nothing: 'white'
   thinshuttle: '#f0f'
@@ -136,7 +158,7 @@ colors =
   positive: '#0f0'
   thinsolid: '#888'
   bridge: '#08f'
-
+###
 placing = 'nothing'
 imminent_select = false
 selectedA = selectedB = null
