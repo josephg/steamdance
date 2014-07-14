@@ -3,17 +3,6 @@
 
 class Boilerplate
   @colors =
-    ###
-    solid: 'hsl(184, 49%, 7%)'
-    nothing: 'white'
-    shuttle: "hsl(305, 98%, 35%)"
-    thinshuttle: "hsl(305, 79%, 73%)"
-    negative: "hsl(0, 74%, 52%)"
-    positive: 'hsl(170, 49%, 51%)'
-    thinsolid: 'hsl(0, 0%, 71%)'
-    bridge: '#08f'
-    ###
-
     bridge: "#2D96D6"
     negative: "#D65A2B"
     nothing: "white"
@@ -361,10 +350,10 @@ class Boilerplate
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
         @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
-        if v is 'nothing' and (v2 = @simulator.get(tx,ty-1)) != 'nothing'
+        if v in ['nothing', 'thinsolid'] and (v2 = @simulator.get(tx,ty-1)) not in ['nothing', 'thinsolid']
           @ctx.fillStyle = Boilerplate.colors[v2 ? 'solid']
           @ctx.globalAlpha = 0.3
-          @ctx.fillRect px, py, @size, @size*0.2
+          @ctx.fillRect px, py, @size, @size*0.3
           @ctx.globalAlpha = 1
 
         if (p = pressure[k]) and p != 0

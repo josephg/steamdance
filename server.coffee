@@ -28,7 +28,8 @@ worlds = {}
 
 db = level 'db', valueEncoding:'json'
 
-WebSocketServer = require('ws').Server
+ws = require 'ws'
+WebSocketServer = ws.Server
 wss = new WebSocketServer {server}
 
 addClient = (worldname, client) ->
@@ -115,7 +116,7 @@ run = (error, value) ->
 
         # Update clients
         msg = JSON.stringify {delta}
-        for c in clients
+        for c in clients when c.readyState is ws.OPEN
           c.send msg
   , 200
 
