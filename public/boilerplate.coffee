@@ -184,6 +184,10 @@ class Boilerplate
 
     @el.onmousemove = (e) =>
       @imminent_select = !!e.shiftKey
+      # If the mouse is released / pressed while not in the box, handle that correctly
+
+      @el.onmousedown e if e.button && !@mouse.mode
+
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
       @mouse.x = clamp e.offsetX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY, 0, @el.offsetHeight - 1
@@ -222,7 +226,10 @@ class Boilerplate
       @el.onmousemove e
       @mouse.x = @mouse.y = @mouse.from = @mouse.tx = @mouse.ty = null
       # ... But if we're drawing, stay in drawing mode.
-      @mouse.mode = null if @mouse.mode is 'select'
+      @mouse.mode = null# if @mouse.mode is 'select'
+
+    @el.onmouseenter = (e) =>
+      @el.onmousedown(e) if e.which
 
     @el.onmousewheel = (e) =>
       return unless @canScroll
@@ -377,33 +384,36 @@ class Boilerplate
       sa = sb = {tx:mtx, ty:mty}
 
     @ctx.lineWidth = 1
-    if sa
-      {tx, ty, tw, th} = enclosingRect sa, sb
-      {px, py} = @worldToScreen tx, ty
-      @ctx.fillStyle = 'rgba(0,0,255,0.5)'
-      @ctx.fillRect px, py, tw*@size, th*@size
 
-      @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
-      @ctx.strokeRect px, py, tw*@size, th*@size
-    else if @mouse.tx != null && @selection # mouse.tx is null when the mouse isn't in the div
-      @ctx.globalAlpha = 0.8
-      for y in [0...@selection.th]
-        for x in [0...@selection.tw]
-          {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
-          if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-            v = @selection[[x,y]]
-            @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
-            @ctx.fillRect px, py, @size, @size
-      @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
-      @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
-      @ctx.globalAlpha = 1
-    else if mpx?
-      # Mouse hover
-      @ctx.fillStyle = Boilerplate.colors[Boilerplate.activeTool ? 'solid']
-      @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
+    # Draw the mouse hover state
+    if @mouse.tx != null
+      if sa
+        {tx, ty, tw, th} = enclosingRect sa, sb
+        {px, py} = @worldToScreen tx, ty
+        @ctx.fillStyle = 'rgba(0,0,255,0.5)'
+        @ctx.fillRect px, py, tw*@size, th*@size
 
-      @ctx.strokeStyle = if @simulator.get(mtx, mty) then 'black' else 'white'
-      @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
+        @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
+        @ctx.strokeRect px, py, tw*@size, th*@size
+      else if @selection # mouse.tx is null when the mouse isn't in the div
+        @ctx.globalAlpha = 0.8
+        for y in [0...@selection.th]
+          for x in [0...@selection.tw]
+            {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
+            if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+              v = @selection[[x,y]]
+              @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
+              @ctx.fillRect px, py, @size, @size
+        @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
+        @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
+        @ctx.globalAlpha = 1
+      else if mpx?
+        # Mouse hover
+        @ctx.fillStyle = Boilerplate.colors[Boilerplate.activeTool ? 'solid']
+        @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
+
+        @ctx.strokeStyle = if @simulator.get(mtx, mty) then 'black' else 'white'
+        @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
     return
