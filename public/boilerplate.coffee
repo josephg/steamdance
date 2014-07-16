@@ -63,12 +63,12 @@ class Boilerplate
       newTool = ({
         # 1-8
         49: 'nothing'
-        50: 'solid'
-        51: 'positive'
-        52: 'negative'
-        53: 'shuttle'
-        54: 'thinshuttle'
-        55: 'thinsolid'
+        50: 'thinsolid'
+        51: 'solid'
+        52: 'positive'
+        53: 'negative'
+        54: 'shuttle'
+        55: 'thinshuttle'
         56: 'bridge'
 
         80: 'positive' # p
@@ -198,8 +198,8 @@ class Boilerplate
       @el.onmousedown e if e.button && !@mouse.mode
 
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
-      @mouse.x = clamp e.offsetX, 0, @el.offsetWidth - 1
-      @mouse.y = clamp e.offsetY, 0, @el.offsetHeight - 1
+      @mouse.x = clamp e.offsetX / devicePixelRatio, 0, @el.offsetWidth - 1
+      @mouse.y = clamp e.offsetY / devicePixelRatio, 0, @el.offsetHeight - 1
       {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       switch @mouse.mode
         when 'paint' then @paint()
