@@ -3,16 +3,25 @@
 
 class Boilerplate
   @colors =
-    bridge: "#2D96D6"
-    negative: "#D65A2B"
-    nothing: "white"
-    positive: "#5ECC5E"
-    shuttle: "9429BF"
-    solid: "hsl(184, 49%, 7%)"
-    thinshuttle: "hsl(283, 89%, 75%)"
-    thinsolid: "hsl(0, 0%, 71%)"
+    bridge: 'hsl(203, 67%, 51%)'
+    negative: 'hsl(16, 68%, 50%)'
+    nothing: 'hsl(0, 0%, 100%)'
+    positive: 'hsl(120, 52%, 58%)'
+    shuttle: 'hsl(283, 65%, 45%)'
+    solid: 'hsl(184, 49%, 7%)'
+    thinshuttle: 'hsl(283, 89%, 75%)'
+    thinsolid: 'hsl(0, 0%, 71%)'
 
-
+  @darkColors =
+    bridge: "hsl(203,34%,43%)"
+    negative: "hsl(16,40%,36%)"
+    nothing: "hsl(0, 0%, 49%)"
+    positive: "hsl(120,30%,43%)"
+    shuttle: "hsl(287,24%,33%)"
+    solid: "hsl(249,3%,45%)"
+    thinshuttle: "hsl(283,31%,49%)"
+    thinsolid: "hsl(0, 0%, 49%)"
+  
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
     dy = Math.abs y1-y0
@@ -357,14 +366,13 @@ class Boilerplate
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
         @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
-        if v in ['nothing', 'thinsolid'] and (v2 = @simulator.get(tx,ty-1)) not in ['nothing', 'thinsolid']
-          @ctx.fillStyle = Boilerplate.colors[v2 ? 'solid']
-          @ctx.globalAlpha = 0.3
+
+        if v is 'nothing' and (v2 = @simulator.get(tx,ty-1)) isnt 'nothing'
+          @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
-          @ctx.globalAlpha = 1
 
         if (p = pressure[k]) and p != 0
-          @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
+          @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
           @ctx.fillRect px, py, @size, @size
 
     zeroPos = @worldToScreen 0, 0
@@ -417,3 +425,4 @@ class Boilerplate
 
 
     return
+
