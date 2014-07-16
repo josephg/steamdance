@@ -229,6 +229,7 @@ class Boilerplate
 
       @mouse.mode = null
       @imminent_select = false
+      @onEditFinish?()
 
     @el.onmouseout = (e) =>
       # Pretend the mouse just went up at the edge of the boilerplate instance then went away.

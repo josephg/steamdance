@@ -22,8 +22,24 @@ body, html {
   top: 0; left: 0;
   cursor: crosshair;
 }
+
+#worldname {
+  z-index: 1;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  color: hsl(42, 95%, 69%);
+
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  cursor: default;
+}
+
 </style>
 <div id="bp" tabIndex=0 autofocus class="boilerplate"></div>
+
+<div id='worldname'></div>
 
 <div class="toolpanel">
   <div id="move">Move
