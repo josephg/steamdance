@@ -23,23 +23,37 @@ body, html {
   cursor: crosshair;
 }
 
-#worldname {
+.worldnamecontainer {
   z-index: 1;
   position: fixed;
-  top: 10px;
-  left: 10px;
-  color: hsl(42, 95%, 69%);
+  top: 0;
+  left: 0;
+  padding: 5px 5px 5px 5px;
+  background-color: hsla(184, 49%, 7%, 0.5);
 
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   cursor: default;
+  color: white;
+}
+
+#worldlabel {
+  color: hsl(42, 95%, 69%);
+  margin: 0;
+  padding: 0;
+  font-size: 1em;
+  border-width: 0 0 1px 0;
+  border-style: solid;
+  background-color: transparent;
 }
 
 </style>
 <div id="bp" tabIndex=0 autofocus class="boilerplate"></div>
 
-<div id='worldname'></div>
+<div class='worldnamecontainer'>
+  <span>local/</span><span id='worldlabel'></span>
+</div>
 
 <div class="toolpanel">
   <div id="move">Move

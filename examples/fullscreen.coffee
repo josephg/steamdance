@@ -1,12 +1,12 @@
 
-worldNameDiv = document.getElementById 'worldname'
+worldLabel = document.getElementById 'worldlabel'
 worldName = null
 load = ->
   location.hash = '#boilerplate' unless location.hash
 
   hash = location.hash
   worldName = hash[1..]
-  worldNameDiv.textContent = "local/\##{worldName}"
+  worldLabel.textContent = worldName
   
   gridStr = localStorage.getItem "world #{worldName}"
   if gridStr != ''
