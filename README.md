@@ -1,21 +1,31 @@
 Boilerplate
 ===========
 
-This is a computer simulator using steam power.
+Boilerplate is a steam powered computery thing. You should watch the youtube
+video to understand how it works, and mess around here.
 
-Boilerplate's main implementation is a collaborative client-server environment
-where you can mess around with steam power. All worlds are automatically saved
-to leveldb when they get edited.
+This repository contains the boilerplate web library and 3 working examples of
+its use:
 
-The code is now factored to make it easy to have a standalone simulator on your
-computer which shares code with the server-client version. But I haven't hosted
-this anywhere yet.
+- A boilerplate client / server for collaborative editing of your funny computers
+- An in-browser editor which saves everything you make to localstorage. You can
+  [mess around with that online](https://josephg.com/boilerplate/).
+- Embedded boilerplate, for putting little bundles of puzzly love inline in a
+  webpage.
+
+The boilerplate simulator is *not included*. That [lives in its own
+repository](/josephg/boilerplate-sim).
 
 
-## Running it
+## Running the server
+
+Boilerplate's main implementation is the collaborative client-server
+environment where you can mess around with steam power. All worlds are
+automatically saved to leveldb when they get edited.
 
 ```
 % git clone ...
+% cd boilerplate
 % npm install
 % npm install -g coffee-script
 % make
