@@ -13,15 +13,16 @@ load = ->
     try
       grid = JSON.parse gridStr
       console.log 'loaded', worldName if grid
-      return grid
+  new Simulator grid
 
-sim = new Simulator load()
+sim = load()
 
 el = document.getElementById 'bp'
 bp = new Boilerplate el, sim
 
 window.onresize = ->
-  bp.resizeTo(window.innerWidth, window.innerHeight)
+  console.log 'resize'
+  bp.resizeTo window.innerWidth, window.innerHeight
 
 isEmpty = (obj) ->
   return false for k of obj
@@ -34,13 +35,13 @@ setInterval =>
 , 200
 
 bp.onEditFinish = save = ->
-  console.log 'saving', worldName
+  #console.log 'saving', worldName
   localStorage.setItem "world #{worldName}", JSON.stringify sim.getGrid()
 
 setInterval save, 5000
 
 window.onhashchange = ->
-  sim.grid = load() || {}
+  bp.simulator = sim = load()
   bp.draw()
 
 window.addEventListener 'copy', (e) ->

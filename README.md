@@ -1,8 +1,11 @@
 Boilerplate
 ===========
 
-Boilerplate is a steam powered computery thing. You should watch the youtube
-video to understand how it works, and mess around here.
+Boilerplate is a steam powered computery thing.
+
+[Watch the youtube video to understand how it works](youtu.be/jLET1hwIsIk)
+
+[Try it out yourself!](josephg.com/boilerplate/)
 
 This repository contains the boilerplate web library and 3 working examples of
 its use:
