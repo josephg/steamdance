@@ -85,9 +85,6 @@ class Boilerplate
       document.activeElement?.boilerplate?.draw()
 
   
-  CELL_SIZE = 20
-
-
   # ----- Utility methods for panning around the screen
 
   # given pixel x,y returns tile x,y
@@ -109,8 +106,8 @@ class Boilerplate
 
   zoomBy: (diff) ->
     @zoomLevel += diff
-    @zoomLevel = clamp @zoomLevel, 1/CELL_SIZE, 5
-    @size = Math.floor CELL_SIZE * @zoomLevel
+    @zoomLevel = clamp @zoomLevel, 1/20, 5
+    @size = Math.floor 20 * @zoomLevel
 
 
 
@@ -134,9 +131,6 @@ class Boilerplate
     @el.tabIndex = 0 if @el.tabIndex is -1 # allow keyboard events
     @canvas = @el.appendChild document.createElement 'canvas'
     @canvas.className = 'draw'
-    @uiCanvas = @el.appendChild document.createElement 'canvas'
-    @uiCanvas.className = 'ui'
-    @uiCanvas.style.pointerEvents = 'none'
 
     @el.boilerplate = this
 
@@ -258,10 +252,8 @@ class Boilerplate
   resizeTo: (width, height) ->
     #@el.style.width = width + 'px'
     #@el.style.height = height + 'px'
-    @uiCanvas.width = @canvas.width = width * devicePixelRatio
-    @uiCanvas.height = @canvas.height = height * devicePixelRatio
-    #@canvas.style.width = @uiCanvas.style.width = width + 'px'
-    #@canvas.style.height = @uiCanvas.style.height = height + 'px'
+    #@canvas.style.width = width + 'px'
+    #@canvas.style.height = height + 'px'
     @ctx = @canvas.getContext '2d'
     @ctx.scale devicePixelRatio, devicePixelRatio
 
