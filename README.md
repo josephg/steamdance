@@ -3,9 +3,9 @@ Boilerplate
 
 Boilerplate is a steam powered computery thing.
 
-[Watch the youtube video to understand how it works](youtu.be/jLET1hwIsIk)
+[Watch the youtube video to understand how it works](https://youtu.be/jLET1hwIsIk)
 
-[Try it out yourself!](josephg.com/boilerplate/)
+[Try it out yourself!](https://josephg.com/boilerplate/)
 
 This repository contains the boilerplate web library and 3 working examples of
 its use:
