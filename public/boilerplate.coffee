@@ -250,6 +250,8 @@ class Boilerplate
       @draw()
 
   resizeTo: (width, height) ->
+    @canvas.width = width * devicePixelRatio
+    @canvas.height = height * devicePixelRatio
     #@el.style.width = width + 'px'
     #@el.style.height = height + 'px'
     #@canvas.style.width = width + 'px'
