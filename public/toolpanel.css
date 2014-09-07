@@ -22,6 +22,7 @@
   text-align: center;
   text-transform: uppercase;
   border-left: 2px hsl(0, 100%, 50%);
+  cursor: pointer;
 }
 
 .toolpanel > div:not(:first-child) {

@@ -52,15 +52,11 @@ class Boilerplate
 
   clamp = (x, min, max) -> Math.max(Math.min(x, max), min)
 
-  # If you have a whole page of boilerplate instances, they should share the
-  # same tool selection.
-  @activeTool = 'nothing'
-
-  @changeTool = (newTool) ->
+  changeTool: (newTool) ->
     @activeTool = if newTool is 'solid' then null else newTool
     @onToolChanged? @activeTool
 
-  @addKeyListener = (el) ->
+  addKeyListener: (el) ->
     el.addEventListener 'keydown', (e) =>
       kc = e.keyCode
 
@@ -75,7 +71,6 @@ class Boilerplate
         55: 'thinshuttle'
         56: 'bridge'
         57: 'buttonup'
-        27: 'move'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -87,9 +82,51 @@ class Boilerplate
         66: 'bridge' # b
         84: 'buttonup' # t
       })[kc]
-      @changeTool newTool if newTool
+      if newTool
+        @selection = @selectOffset = null
+        @changeTool newTool
 
-      document.activeElement?.boilerplate?.draw()
+      switch kc
+        when 37 # left
+          @scroll_x -= 1 if @canScroll
+        when 39 # right
+          @scroll_x += 1 if @canScroll
+        when 38 # up
+          @scroll_y -= 1 if @canScroll
+        when 40 # down
+          @scroll_y += 1 if @canScroll
+
+        when 16 # shift
+          @imminent_select = true
+        when 27 # esc
+          if @selection
+            @selection = @selectOffset = null
+          else
+            @changeTool 'move'
+
+        when 88 # x
+          @flip 'x' if @selection
+        when 89 # y
+          @flip 'y' if @selection
+        when 77 # m
+          @mirror() if @selection
+
+      @draw()
+
+    el.addEventListener 'keyup', (e) =>
+      if e.keyCode == 16 # shift
+        @imminent_select = false
+        @draw()
+
+    el.addEventListener 'blur', =>
+      @releaseButton()
+      @mouse.mode = null
+      @imminent_select = false
+      @draw()
+
+    el.addEventListener 'copy', (e) => @copy(e)
+    el.addEventListener 'paste', (e) => @paste(e)
+
 
   
   # ----- Utility methods for panning around the screen
@@ -121,6 +158,8 @@ class Boilerplate
   constructor: (@el, options) ->
     @zoomLevel = 1
     @zoomBy 0
+
+    @activeTool = 'nothing'
 
     if options instanceof Simulator
       options = {simulator:options}
@@ -156,43 +195,6 @@ class Boilerplate
 
     # ----- Event handlers
 
-    @el.onkeydown = (e) =>
-      kc = e.keyCode
-
-      switch kc
-        when 37 # left
-          @scroll_x -= 1 if @canScroll
-        when 39 # right
-          @scroll_x += 1 if @canScroll
-        when 38 # up
-          @scroll_y -= 1 if @canScroll
-        when 40 # down
-          @scroll_y += 1 if @canScroll
-
-        when 16 # shift
-          @imminent_select = true
-        when 27 # esc
-          @selection = @selectOffset = null
-
-        when 88 # x
-          @flip 'x' if @selection
-        when 89 # y
-          @flip 'y' if @selection
-        when 77 # m
-          @mirror() if @selection
-
-      @draw()
-
-    @el.onkeyup = (e) =>
-      if e.keyCode == 16 # shift
-        @imminent_select = false
-        @draw()
-
-    @el.addEventListener 'blur', =>
-      @releaseButton()
-      @mouse.mode = null
-      @imminent_select = false
-
     @el.onmousemove = (e) =>
       @imminent_select = !!e.shiftKey
       # If the mouse is released / pressed while not in the box, handle that correctly
@@ -200,25 +202,26 @@ class Boilerplate
       @el.onmousedown e if e.button && !@mouse.mode
 
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
-      @mouse.x = clamp e.offsetX / devicePixelRatio, 0, @el.offsetWidth - 1
-      @mouse.y = clamp e.offsetY / devicePixelRatio, 0, @el.offsetHeight - 1
+      @mouse.x = clamp e.offsetX, 0, @el.offsetWidth - 1
+      @mouse.y = clamp e.offsetY, 0, @el.offsetHeight - 1
       {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       switch @mouse.mode
         when 'paint' then @paint()
         when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
+      @updateCursor()
       @draw()
 
     @el.onmousedown = (e) =>
-      if Boilerplate.activeTool is 'move'
-        @pressButton @mouse.tx, @mouse.ty
+      if e.shiftKey
+        @mouse.mode = 'select'
+        @selection = @selectOffset = null
+        @selectedA = @screenToWorld @mouse.x, @mouse.y
+        @selectedB = @selectedA
+      else if @selection
+        @stamp()
       else
-        if e.shiftKey
-          @mouse.mode = 'select'
-          @selection = @selectOffset = null
-          @selectedA = @screenToWorld @mouse.x, @mouse.y
-          @selectedB = @selectedA
-        else if @selection
-          @stamp()
+        if @activeTool is 'move'
+          @pressButton @mouse.tx, @mouse.ty
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -259,31 +262,41 @@ class Boilerplate
       else
         @scroll_x += e.wheelDeltaX / (-2 * @size)
         @scroll_y += e.wheelDeltaY / (-2 * @size)
+      {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       e.preventDefault()
+      @updateCursor()
       @draw()
+
+  updateCursor: ->
+    @canvas.style.cursor =
+      if @activeTool is 'move'
+        if @simulator.get(@mouse.tx, @mouse.ty) in ['buttonup', 'buttondown']
+          'pointer'
+        else
+          'default'
+      else
+        'crosshair'
 
   resizeTo: (width, height) ->
     @canvas.width = width * devicePixelRatio
     @canvas.height = height * devicePixelRatio
-    #@el.style.width = width + 'px'
-    #@el.style.height = height + 'px'
-    #@canvas.style.width = width + 'px'
-    #@canvas.style.height = height + 'px'
+    @canvas.style.width = width + 'px'
+    @canvas.style.height = height + 'px'
     @ctx = @canvas.getContext '2d'
     @ctx.scale devicePixelRatio, devicePixelRatio
 
     @draw()
 
   paint: ->
-    throw 'Invalid placing' if Boilerplate.activeTool is 'move'
+    throw 'Invalid placing' if @activeTool is 'move'
     {tx, ty} = @mouse
     {tx:fromtx, ty:fromty} = @mouse.from
     fromtx ?= tx
     fromty ?= ty
 
     line fromtx, fromty, tx, ty, (x, y) =>
-      @simulator.set x, y, Boilerplate.activeTool
-      @onEdit? x, y, Boilerplate.activeTool
+      @simulator.set x, y, @activeTool
+      @onEdit? x, y, @activeTool
 
   #########################
   # BUTTONS               #
@@ -422,7 +435,7 @@ class Boilerplate
     @ctx.lineWidth = 1
 
     # Draw the mouse hover state
-    if @mouse.tx != null
+    if @mouse.tx != null and @activeTool != 'move'
       if sa
         {tx, ty, tw, th} = enclosingRect sa, sb
         {px, py} = @worldToScreen tx, ty
@@ -445,7 +458,7 @@ class Boilerplate
         @ctx.globalAlpha = 1
       else if mpx?
         # Mouse hover
-        @ctx.fillStyle = Boilerplate.colors[Boilerplate.activeTool ? 'solid']
+        @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
         @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
         @ctx.strokeStyle = if @simulator.get(mtx, mty) then 'black' else 'white'

@@ -44,16 +44,10 @@ window.onhashchange = ->
   bp.simulator = sim = load()
   bp.draw()
 
-window.addEventListener 'copy', (e) ->
-  document.activeElement?.boilerplate?.copy e
-
-window.addEventListener 'paste', (e) ->
-  document.activeElement?.boilerplate?.paste e
-
 # putting autofocus in the html doesn't cut it for some reason.
 el.focus()
 
-Boilerplate.addKeyListener window
+bp.addKeyListener window
 
 do ->
   panel = document.getElementsByClassName('toolpanel')[0]
@@ -63,9 +57,9 @@ do ->
     element = e.target
     return if element is panel
 
-    Boilerplate.changeTool element.id
+    bp.changeTool element.id
 
-  Boilerplate.onToolChanged = (newTool) ->
+  bp.onToolChanged = (newTool) ->
     if selected
       selected.className = ''
 
@@ -74,4 +68,5 @@ do ->
     e.className = 'selected'
     selected = e
 
+  bp.onToolChanged(bp.activeTool)
 
