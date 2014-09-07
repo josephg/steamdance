@@ -11,6 +11,8 @@ class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
+    buttondown: 'yellow'
+    buttonup: 'orange'
 
   @darkColors =
     bridge: "hsl(203,34%,43%)"
@@ -21,6 +23,8 @@ class Boilerplate
     solid: "hsl(249,3%,45%)"
     thinshuttle: "hsl(283,31%,49%)"
     thinsolid: "hsl(0, 0%, 49%)"
+    buttondown: 'yellow'
+    buttonup: 'orange'
   
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
@@ -61,7 +65,7 @@ class Boilerplate
       kc = e.keyCode
 
       newTool = ({
-        # 1-8
+        # 1-9
         49: 'nothing'
         50: 'thinsolid'
         51: 'solid'
@@ -70,6 +74,8 @@ class Boilerplate
         54: 'shuttle'
         55: 'thinshuttle'
         56: 'bridge'
+        57: 'buttonup'
+        27: 'move'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -79,6 +85,7 @@ class Boilerplate
         71: 'thinsolid' # g
         68: 'solid' # d
         66: 'bridge' # b
+        84: 'buttonup' # t
       })[kc]
       @changeTool newTool if newTool
 
@@ -182,6 +189,7 @@ class Boilerplate
         @draw()
 
     @el.addEventListener 'blur', =>
+      @releaseButton()
       @mouse.mode = null
       @imminent_select = false
 
@@ -201,20 +209,24 @@ class Boilerplate
       @draw()
 
     @el.onmousedown = (e) =>
-      if e.shiftKey
-        @mouse.mode = 'select'
-        @selection = @selectOffset = null
-        @selectedA = @screenToWorld @mouse.x, @mouse.y
-        @selectedB = @selectedA
-      else if @selection
-        @stamp()
+      if Boilerplate.activeTool is 'move'
+        @pressButton @mouse.tx, @mouse.ty
       else
-        @mouse.mode = 'paint'
-        @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
-        @paint()
+        if e.shiftKey
+          @mouse.mode = 'select'
+          @selection = @selectOffset = null
+          @selectedA = @screenToWorld @mouse.x, @mouse.y
+          @selectedB = @selectedA
+        else if @selection
+          @stamp()
+        else
+          @mouse.mode = 'paint'
+          @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
+          @paint()
       @draw()
 
     @el.onmouseup = =>
+      @releaseButton()
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
         @selectOffset =
@@ -223,6 +235,7 @@ class Boilerplate
 
       @mouse.mode = null
       @imminent_select = false
+      @draw()
       @onEditFinish?()
 
     @el.onmouseout = (e) =>
@@ -271,6 +284,26 @@ class Boilerplate
     line fromtx, fromty, tx, ty, (x, y) =>
       @simulator.set x, y, Boilerplate.activeTool
       @onEdit? x, y, Boilerplate.activeTool
+
+  #########################
+  # BUTTONS               #
+  #########################
+  pressButton: (tx, ty) ->
+    @pressedButton = []
+    if @simulator.get(tx, ty) == 'buttonup'
+      fill {x:tx, y:ty}, (x, y) =>
+        if @simulator.get(x, y) == 'buttonup'
+          @simulator.set x, y, 'buttondown'
+          @pressedButton.push {x, y}
+          true
+        else
+          false
+  releaseButton: ->
+    return unless @pressedButton
+    for {x, y} in @pressedButton
+      @simulator.set x, y, 'buttonup' if @simulator.get(x,y) == 'buttondown'
+    @pressedButton = null
+
 
   #########################
   # SELECTION             #
