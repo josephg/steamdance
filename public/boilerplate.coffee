@@ -160,7 +160,7 @@ class Boilerplate
     @zoomLevel = 1
     @zoomBy 0
 
-    @activeTool = 'nothing'
+    @activeTool = 'move'
 
     if options instanceof Simulator
       options = {simulator:options}
@@ -434,6 +434,12 @@ class Boilerplate
     if data
       try
         @selection = JSON.parse data
+        tw = th = 0
+        for k, v of @selection
+          {x,y} = parseXY k
+          tw = x if x > tw
+          th = y if y > th
+        @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
 
 
