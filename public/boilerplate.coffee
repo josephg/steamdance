@@ -234,6 +234,7 @@ class Boilerplate
             @pressButton @mouse.tx, @mouse.ty
           else if v in ['shuttle', 'thinshuttle']
             @draggedShuttle = {x:@mouse.tx, y:@mouse.ty}
+            @simulator.holdShuttle @draggedShuttle
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -243,6 +244,7 @@ class Boilerplate
     @el.onmouseup = =>
       @releaseButton()
       @draggedShuttle = null
+      @simulator.releaseShuttle()
 
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
@@ -364,7 +366,9 @@ class Boilerplate
       {x,y} = parseXY k
       @simulator.set x+dx, y+dy, v
 
-    @draggedShuttle = {x:tx, y:ty} if canMove
+    if canMove
+      @draggedShuttle = {x:tx, y:ty}
+      @simulator.holdShuttle @draggedShuttle
 
   #########################
   # SELECTION             #
