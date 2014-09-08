@@ -439,8 +439,8 @@ class Boilerplate
         tw = th = 0
         for k, v of @selection
           {x,y} = parseXY k
-          tw = x if x > tw
-          th = y if y > th
+          tw = x+1 if x >= tw
+          th = y+1 if y >= th
         @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
 
