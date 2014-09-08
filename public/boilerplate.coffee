@@ -239,6 +239,7 @@ class Boilerplate
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
           @paint()
+      @updateCursor()
       @draw()
 
     @el.onmouseup = =>
@@ -254,6 +255,7 @@ class Boilerplate
 
       @mouse.mode = null
       @imminent_select = false
+      @updateCursor()
       @draw()
       @onEditFinish?()
 
@@ -286,7 +288,11 @@ class Boilerplate
   updateCursor: ->
     @canvas.style.cursor =
       if @activeTool is 'move'
-        if @simulator.get(@mouse.tx, @mouse.ty) in ['buttonup', 'buttondown']
+        if @draggedShuttle
+          '-webkit-grabbing'
+        else if @simulator.get(@mouse.tx, @mouse.ty) in ['shuttle', 'thinshuttle']
+          '-webkit-grab'
+        else if @simulator.get(@mouse.tx, @mouse.ty) in ['buttonup', 'buttondown']
           'pointer'
         else
           'default'
