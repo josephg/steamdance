@@ -32,6 +32,7 @@ setInterval =>
   delta = sim.step()
   if !isEmpty delta.changed
     bp.draw()
+    bp.updateCursor()
 , 200
 
 bp.onEditFinish = save = ->
