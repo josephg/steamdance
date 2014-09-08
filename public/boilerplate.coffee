@@ -55,6 +55,7 @@ class Boilerplate
   changeTool: (newTool) ->
     @activeTool = if newTool is 'solid' then null else newTool
     @onToolChanged? @activeTool
+    @updateCursor()
 
   addKeyListener: (el) ->
     el.addEventListener 'keydown', (e) =>
@@ -204,12 +205,19 @@ class Boilerplate
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
       @mouse.x = clamp e.offsetX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY, 0, @el.offsetHeight - 1
-      {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
-      switch @mouse.mode
-        when 'paint' then @paint()
-        when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
-      @updateCursor()
-      @draw()
+      {tx, ty} = @screenToWorld @mouse.x, @mouse.y
+
+      if tx != @mouse.tx || ty != @mouse.ty
+        @mouse.tx = tx; @mouse.ty = ty
+
+        switch @mouse.mode
+          when 'paint' then @paint()
+          when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
+
+        @dragShuttleTo tx, ty
+
+        @updateCursor()
+        @draw()
 
     @el.onmousedown = (e) =>
       if e.shiftKey
@@ -221,7 +229,11 @@ class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          @pressButton @mouse.tx, @mouse.ty
+          v = @simulator.get @mouse.tx, @mouse.ty
+          if v is 'buttonup'
+            @pressButton @mouse.tx, @mouse.ty
+          else if v in ['shuttle', 'thinshuttle']
+            @draggedShuttle = {x:@mouse.tx, y:@mouse.ty}
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -230,6 +242,8 @@ class Boilerplate
 
     @el.onmouseup = =>
       @releaseButton()
+      @draggedShuttle = null
+
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
         @selectOffset =
@@ -317,6 +331,40 @@ class Boilerplate
       @simulator.set x, y, 'buttonup' if @simulator.get(x,y) == 'buttondown'
     @pressedButton = null
 
+  dragShuttleTo: (tx, ty) ->
+    return unless @draggedShuttle
+
+    dx = tx - @draggedShuttle.x
+    dy = ty - @draggedShuttle.y
+    return unless dx || dy
+
+    #console.log tx, @draggedShuttle, dx, dy
+
+    shuttle = {}
+    # Pick up the shuttle
+    fill @draggedShuttle, (x, y) =>
+      v = @simulator.get x, y
+      if v in ['shuttle', 'thinshuttle']
+        shuttle[[x,y]] = v
+        @simulator.set x, y, 'nothing'
+        yes
+      else
+        no
+
+    canMove = yes
+    # Check if we can move the shuttle here
+    for k,v of shuttle when canMove
+      {x,y} = parseXY k
+      canMove = no if @simulator.get(x+dx, y+dy) != 'nothing'
+
+    dx = dy = 0 if !canMove
+
+    # Put the shuttle down
+    for k,v of shuttle
+      {x,y} = parseXY k
+      @simulator.set x+dx, y+dy, v
+
+    @draggedShuttle = {x:tx, y:ty} if canMove
 
   #########################
   # SELECTION             #
@@ -408,7 +456,8 @@ class Boilerplate
         @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
 
-        if v is 'nothing' and (v2 = @simulator.get(tx,ty-1)) isnt 'nothing'
+        downCells = ['nothing', 'buttondown']
+        if v in downCells and (v2 = @simulator.get(tx,ty-1)) not in downCells
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
 
@@ -435,7 +484,7 @@ class Boilerplate
     @ctx.lineWidth = 1
 
     # Draw the mouse hover state
-    if @mouse.tx != null and @activeTool != 'move'
+    if @mouse.tx != null
       if sa
         {tx, ty, tw, th} = enclosingRect sa, sb
         {px, py} = @worldToScreen tx, ty
@@ -456,7 +505,7 @@ class Boilerplate
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
         @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
         @ctx.globalAlpha = 1
-      else if mpx?
+      else if mpx? and @activeTool != 'move'
         # Mouse hover
         @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
         @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
