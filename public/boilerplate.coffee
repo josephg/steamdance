@@ -265,6 +265,8 @@ class Boilerplate
       @mouse.x = @mouse.y = @mouse.from = @mouse.tx = @mouse.ty = null
       # ... But if we're drawing, stay in drawing mode.
       @mouse.mode = null# if @mouse.mode is 'select'
+      @releaseButton()
+      @draw()
 
     @el.onmouseenter = (e) =>
       @el.onmousedown(e) if e.which
