@@ -65,5 +65,5 @@
 .toolpanel > #thinshuttle { color: black; background-color: hsl(283, 89%, 75%); }
 .toolpanel > #thinsolid { color: black; background-color: hsl(0, 0%, 71%); }
 .toolpanel > #bridge { background-color: #2D96D6; }
-.toolpanel > #buttonup { background-color: orange; }
+.toolpanel > #buttonup { background-color: rgb(204,123,0); }
 

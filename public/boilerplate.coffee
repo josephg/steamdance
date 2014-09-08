@@ -11,20 +11,20 @@ class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
-    buttondown: 'yellow'
-    buttonup: 'orange'
+    buttondown: 'rgb(255,169,61)'
+    buttonup: 'rgb(204,123,0)'
 
   @darkColors =
     bridge: "hsl(203,34%,43%)"
     negative: "hsl(16,40%,36%)"
-    nothing: "hsl(0, 0%, 49%)"
+    nothing: 'hsl(0, 0%, 100%)'
     positive: "hsl(120,30%,43%)"
     shuttle: "hsl(287,24%,33%)"
     solid: "hsl(249,3%,45%)"
     thinshuttle: "hsl(283,31%,49%)"
     thinsolid: "hsl(0, 0%, 49%)"
-    buttondown: 'yellow'
-    buttonup: 'orange'
+    buttondown: 'rgb(255,169,61)'
+    buttonup: 'rgb(171,99,18)'
   
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
@@ -99,7 +99,7 @@ class Boilerplate
 
         when 16 # shift
           @imminent_select = true
-        when 27 # esc
+        when 27,192 # esc
           if @selection
             @selection = @selectOffset = null
           else
@@ -457,7 +457,8 @@ class Boilerplate
         @ctx.fillRect px, py, @size, @size
 
         downCells = ['nothing', 'buttondown']
-        if v in downCells and (v2 = @simulator.get(tx,ty-1)) not in downCells
+        v2 = @simulator.get(tx,ty-1)
+        if v in downCells and v != v2
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
 
