@@ -2,6 +2,24 @@
 
 
 class Boilerplate
+  fill = (initial_square, f) ->
+    visited = {}
+    visited["#{initial_square.x},#{initial_square.y}"] = true
+    to_explore = [initial_square]
+    hmm = (x,y) ->
+      k = "#{x},#{y}"
+      if not visited[k]
+        visited[k] = true
+        to_explore.push {x,y}
+    while n = to_explore.shift()
+      ok = f n.x, n.y, hmm
+      if ok
+        hmm n.x+1, n.y
+        hmm n.x-1, n.y
+        hmm n.x, n.y+1
+        hmm n.x, n.y-1
+    return
+
   @colors =
     bridge: 'hsl(203, 67%, 51%)'
     negative: 'hsl(16, 68%, 50%)'
@@ -269,7 +287,9 @@ class Boilerplate
       @draw()
 
     @el.onmouseenter = (e) =>
-      @el.onmousedown(e) if e.which
+      if e.which
+        @el.onmousemove e
+        @el.onmousedown e
 
     @el.onmousewheel = (e) =>
       return unless @canScroll
