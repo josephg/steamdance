@@ -180,10 +180,7 @@ class Boilerplate
 
     @activeTool = 'move'
 
-    if options instanceof Simulator
-      options = {simulator:options}
-
-    @simulator = options.simulator || new Simulator()
+    @compiled = options.compiled
 
     # In tile coordinates
     @scroll_x = options.initialX || 0
@@ -308,6 +305,7 @@ class Boilerplate
       @draw()
 
   updateCursor: ->
+    return
     @canvas.style.cursor =
       if @activeTool is 'move'
         if @draggedShuttle
@@ -486,8 +484,16 @@ class Boilerplate
 
   drawGrid: ->
     # Draw the tiles
-    pressure = @simulator.getPressure()
-    for k,v of @simulator.grid
+    #pressure = @simulator.getPressure()
+    shuttleGrid = {}
+    for s,sid in @compiled.ast.shuttles
+      stateId = @compiled.states[sid]
+      {dx, dy} = s.states[stateId]
+      for {x,y,v} in s.points
+        shuttleGrid[[x+dx,y+dy]] = v
+    for k,v of @compiled.grid
+      v = 'nothing' if v in ['shuttle', 'thinshuttle']
+      v = shuttleGrid[k] if k of shuttleGrid
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
@@ -495,14 +501,25 @@ class Boilerplate
         @ctx.fillRect px, py, @size, @size
 
         downCells = ['nothing', 'buttondown']
-        v2 = @simulator.get(tx,ty-1)
+        k2 = ''+[tx,ty-1]
+        v2 = @compiled.grid[k2]
+        v2 = 'nothing' if v2 in ['shuttle', 'thinshuttle']
+        v2 = shuttleGrid[k2] if k2 of shuttleGrid
         if v in downCells and v != v2
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
 
-        if (p = pressure[k]) and p != 0
-          @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
-          @ctx.fillRect px, py, @size, @size
+        
+        rid = @compiled.ast.regionGrid[k]
+        if not rid?
+          if (sid = @compiled.ast.shuttleGrid[k])?
+            shuttle = @compiled.ast.shuttles[sid]
+            rid = shuttle.adjacentTo[k]?[@compiled.states[sid]]
+        if rid?
+          p = @compiled.getPressure(rid)
+          if p != 0
+            @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
+            @ctx.fillRect px, py, @size, @size
 
     zeroPos = @worldToScreen 0, 0
     @ctx.lineWidth = 3
