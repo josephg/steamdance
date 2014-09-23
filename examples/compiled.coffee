@@ -24,7 +24,6 @@ bp = new Boilerplate el, grid: grid
 
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
-  bp.reifyGrid()
   localStorage.setItem "world #{worldName}", JSON.stringify bp.compiled.grid
 
 setInterval save, 5000
@@ -36,10 +35,7 @@ bp.addKeyListener window
 bp.draw()
 
 setInterval =>
-  bp.compiled.updateShuttles()
-  bp.compiled.calcPressure()
-  bp.draw()
-  bp.updateCursor()
+  bp.step()
 , 200
 
 window.onresize = ->

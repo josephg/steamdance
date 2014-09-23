@@ -266,8 +266,18 @@ class Boilerplate
           v = @compiled.grid["#{@mouse.tx},#{@mouse.ty}"]
           if v is 'buttonup'
             @pressButton @mouse.tx, @mouse.ty
-          #else if v in ['shuttle', 'thinshuttle']
-            #@draggedShuttle = {x:@mouse.tx, y:@mouse.ty}
+          else if v in ['shuttle', 'thinshuttle']
+            # find the shuttle id for the shuttle under the cursor
+            sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
+            shuttle = @compiled.ast.shuttles[sid]
+            {dx,dy} = shuttle.states[@compiled.states[sid]]
+            for {x,y},i in shuttle.points
+              if x+dx == @mouse.tx and y+dy == @mouse.ty
+                heldPoint = i
+            @draggedShuttle = {
+              id: sid
+              heldPoint: heldPoint
+            }
             #@simulator.holdShuttle @draggedShuttle
         else
           @mouse.mode = 'paint'
@@ -326,7 +336,7 @@ class Boilerplate
   updateCursor: ->
     @canvas.style.cursor =
       if @activeTool is 'move'
-        if @draggedShuttle
+        if @draggedShuttle?
           '-webkit-grabbing'
         else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['shuttle', 'thinshuttle']
           '-webkit-grab'
@@ -354,7 +364,6 @@ class Boilerplate
     fromtx ?= tx
     fromty ?= ty
 
-    @reifyGrid()
     line fromtx, fromty, tx, ty, (x, y) =>
       #@simulator.set x, y, @activeTool
       if @activeTool?
@@ -369,6 +378,17 @@ class Boilerplate
     @compiled = compile @compiled.grid
     @compiled.calcPressure()
     @draw()
+
+  step: ->
+    if @draggedShuttle?
+      heldShuttleState = @compiled.states[@draggedShuttle.id]
+    @compiled.updateShuttles()
+    if @draggedShuttle?
+      @compiled.states[@draggedShuttle.id] = heldShuttleState
+    @compiled.calcPressure()
+    @reifyGrid()
+    @draw()
+    @updateCursor()
 
   reifyGrid: ->
     for k,v of @compiled.grid
@@ -404,47 +424,28 @@ class Boilerplate
     @pressedButton = null
 
   dragShuttleTo: (tx, ty) ->
-    return unless @draggedShuttle
+    return unless @draggedShuttle?
 
-    dx = tx - @draggedShuttle.x
-    dy = ty - @draggedShuttle.y
-    return unless dx || dy
+    shuttle = @compiled.ast.shuttles[@draggedShuttle.id]
 
-    #console.log tx, @draggedShuttle, dx, dy
+    heldPoint = shuttle.points[@draggedShuttle.heldPoint]
+    dist2 = ({x:x1,y:y1},{x:x2,y:y2}) -> dx = x2-x1; dy = y2-y1; dx*dx+dy*dy
+    minDist = null
+    bestState = @compiled.states[@draggedShuttle.id]
+    for {dx, dy},state in shuttle.states
+      if (d = dist2({x:heldPoint.x + dx, y:heldPoint.y + dy}, {x:tx, y:ty})) < minDist or !minDist?
+        bestState = state
+        minDist = d
 
-    shuttle = {}
-    # Pick up the shuttle
-    fill @draggedShuttle, (x, y) =>
-      v = @simulator.get x, y
-      if v in ['shuttle', 'thinshuttle']
-        shuttle[[x,y]] = v
-        @simulator.set x, y, 'nothing'
-        yes
-      else
-        no
-
-    canMove = yes
-    # Check if we can move the shuttle here
-    for k,v of shuttle when canMove
-      {x,y} = parseXY k
-      canMove = no if @simulator.get(x+dx, y+dy) != 'nothing'
-
-    dx = dy = 0 if !canMove
-
-    # Put the shuttle down
-    for k,v of shuttle
-      {x,y} = parseXY k
-      @simulator.set x+dx, y+dy, v
-
-    if canMove
-      @draggedShuttle = {x:tx, y:ty}
-      @simulator.holdShuttle @draggedShuttle
+    @compiled.states[@draggedShuttle.id] = bestState
+    @reifyGrid()
+    #@compiled.calcPressure()
+    @draw()
 
   #########################
   # SELECTION             #
   #########################
   copySubgrid: (rect) ->
-    @reifyGrid()
     {tx, ty, tw, th} = rect
     subgrid = {tw,th}
     for y in [ty..ty+th]
@@ -477,7 +478,6 @@ class Boilerplate
     mtx -= @selectOffset.tx
     mty -= @selectOffset.ty
 
-    @reifyGrid()
     changed = no
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
@@ -534,15 +534,7 @@ class Boilerplate
   drawGrid: ->
     # Draw the tiles
     #pressure = @simulator.getPressure()
-    shuttleGrid = {}
-    for s,sid in @compiled.ast.shuttles
-      stateId = @compiled.states[sid]
-      {dx, dy} = s.states[stateId]
-      for {x,y,v} in s.points
-        shuttleGrid[[x+dx,y+dy]] = v
     for k,v of @compiled.grid
-      v = 'nothing' if v in ['shuttle', 'thinshuttle']
-      v = shuttleGrid[k] if k of shuttleGrid
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
@@ -553,7 +545,6 @@ class Boilerplate
         k2 = ''+[tx,ty-1]
         v2 = @compiled.grid[k2]
         v2 = 'nothing' if v2 in ['shuttle', 'thinshuttle']
-        v2 = shuttleGrid[k2] if k2 of shuttleGrid
         if v in downCells and v != v2
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
