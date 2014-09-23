@@ -485,7 +485,10 @@ class Boilerplate
         ty = mty+y
         if (s = @selection[[x,y]]) != @compiled.grid[[tx,ty]]
           changed = yes
-          @compiled.grid[[tx,ty]] = s
+          if s?
+            @compiled.grid[[tx,ty]] = s
+          else
+            delete @compiled.grid[[tx,ty]]
           @onEdit? tx, ty, s
     @recompile() if changed
 
