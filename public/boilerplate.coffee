@@ -354,10 +354,33 @@ class Boilerplate
     fromtx ?= tx
     fromty ?= ty
 
+    @reifyGrid()
     line fromtx, fromty, tx, ty, (x, y) =>
       #@simulator.set x, y, @activeTool
-      # TODO: recompile
+      if @activeTool?
+        @compiled.grid[[x,y]] = @activeTool
+      else
+        delete @compiled.grid[[x,y]]
       @onEdit? x, y, @activeTool
+    @recompile()
+    @draw()
+
+  recompile: ->
+    @compiled = compile @compiled.grid
+    @compiled.calcPressure()
+    @draw()
+
+  reifyGrid: ->
+    for k,v of @compiled.grid
+      if v in ['thinshuttle', 'shuttle']
+        @compiled.grid[k] = 'nothing'
+
+    for s,sid in @compiled.ast.shuttles
+      stateId = @compiled.states[sid]
+      {dx, dy} = s.states[stateId]
+      for {x,y,v} in s.points
+        @compiled.grid[[x+dx,y+dy]] = v
+    return
 
   #########################
   # BUTTONS               #
@@ -421,6 +444,7 @@ class Boilerplate
   # SELECTION             #
   #########################
   copySubgrid: (rect) ->
+    @reifyGrid()
     {tx, ty, tw, th} = rect
     subgrid = {tw,th}
     for y in [ty..ty+th]
@@ -453,14 +477,17 @@ class Boilerplate
     mtx -= @selectOffset.tx
     mty -= @selectOffset.ty
 
+    @reifyGrid()
+    changed = no
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
         tx = mtx+x
         ty = mty+y
         if (s = @selection[[x,y]]) != @compiled.grid[[tx,ty]]
-          # TODO: recompile
-          #@simulator.set tx, ty, s
+          changed = yes
+          @compiled.grid[[tx,ty]] = s
           @onEdit? tx, ty, s
+    @recompile() if changed
 
   copy: (e) ->
     #console.log 'copy'

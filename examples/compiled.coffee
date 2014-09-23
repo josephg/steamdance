@@ -2,6 +2,7 @@
 el = document.getElementById 'bp'
 
 worldLabel = document.getElementById 'worldlabel'
+worldName = null
 loadGrid = ->
   location.hash = '#boilerplate' unless location.hash
 
@@ -23,7 +24,8 @@ bp = new Boilerplate el, grid: grid
 
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
-  #localStorage.setItem "world #{worldName}", JSON.stringify sim.getGrid()
+  bp.reifyGrid()
+  localStorage.setItem "world #{worldName}", JSON.stringify bp.compiled.grid
 
 setInterval save, 5000
 
