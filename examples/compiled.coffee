@@ -1,26 +1,8 @@
-compiler = require('boilerplate-compiler')
-
-compile = (grid, fillMode) ->
-  buffer = []
-  # I could use a real stream here, but then my test would be asyncronous.
-  stream =
-    write: (str) -> buffer.push str
-    end: ->
-
-  ast = compiler.compileGrid grid, {stream, module:'bare', fillMode}
-
-  code = buffer.join ''
-
-  #console.log 'code length', code.length
-  #console.log code
-  f = new Function(code)
-  {states, calcPressure, updateShuttles, getPressure} = f()
-  {states, calcPressure, updateShuttles, getPressure, ast, grid}
 
 el = document.getElementById 'bp'
 
 worldLabel = document.getElementById 'worldlabel'
-load = ->
+loadGrid = ->
   location.hash = '#boilerplate' unless location.hash
 
   hash = location.hash
@@ -32,20 +14,28 @@ load = ->
     try
       grid = JSON.parse gridStr
       console.log 'loaded', worldName if grid
-  new Simulator grid
+  grid
 
 
-sim = load()
-compiled = compile sim.grid
+grid = loadGrid()
 
-bp = new Boilerplate el, compiled: compiled
+bp = new Boilerplate el, grid: grid
+
+bp.onEditFinish = save = ->
+  #console.log 'saving', worldName
+  #localStorage.setItem "world #{worldName}", JSON.stringify sim.getGrid()
+
+setInterval save, 5000
+
+el.focus()
+
+bp.addKeyListener window
 
 bp.draw()
 
-compiled.calcPressure()
 setInterval =>
-  compiled.updateShuttles()
-  compiled.calcPressure()
+  bp.compiled.updateShuttles()
+  bp.compiled.calcPressure()
   bp.draw()
   bp.updateCursor()
 , 200
@@ -53,3 +43,25 @@ setInterval =>
 window.onresize = ->
   console.log 'resize'
   bp.resizeTo window.innerWidth, window.innerHeight
+
+do ->
+  panel = document.getElementsByClassName('toolpanel')[0]
+
+  selected = null
+  panel.onclick = (e) ->
+    element = e.target
+    return if element is panel
+
+    bp.changeTool element.id
+
+  bp.onToolChanged = (newTool) ->
+    if selected
+      selected.className = ''
+
+    e = document.getElementById (newTool || 'solid')
+    return unless e
+    e.className = 'selected'
+    selected = e
+
+  bp.onToolChanged(bp.activeTool)
+

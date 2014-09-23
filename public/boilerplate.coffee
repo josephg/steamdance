@@ -1,5 +1,23 @@
 {parseXY} = Simulator
 
+compiler = require('boilerplate-compiler')
+
+compile = (grid, fillMode) ->
+  buffer = []
+  # I could use a real stream here, but then my test would be asyncronous.
+  stream =
+    write: (str) -> buffer.push str
+    end: ->
+
+  ast = compiler.compileGrid grid, {stream, module:'bare', fillMode}
+
+  code = buffer.join ''
+
+  #console.log 'code length', code.length
+  #console.log code
+  f = new Function(code)
+  {states, calcPressure, updateShuttles, getPressure} = f()
+  {states, calcPressure, updateShuttles, getPressure, ast, grid}
 
 class Boilerplate
   fill = (initial_square, f) ->
@@ -180,7 +198,8 @@ class Boilerplate
 
     @activeTool = 'move'
 
-    @compiled = options.compiled
+    @compiled = compile options.grid
+    @compiled.calcPressure()
 
     # In tile coordinates
     @scroll_x = options.initialX || 0
@@ -244,12 +263,12 @@ class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          v = @simulator.get @mouse.tx, @mouse.ty
+          v = @compiled.grid["#{@mouse.tx},#{@mouse.ty}"]
           if v is 'buttonup'
             @pressButton @mouse.tx, @mouse.ty
-          else if v in ['shuttle', 'thinshuttle']
-            @draggedShuttle = {x:@mouse.tx, y:@mouse.ty}
-            @simulator.holdShuttle @draggedShuttle
+          #else if v in ['shuttle', 'thinshuttle']
+            #@draggedShuttle = {x:@mouse.tx, y:@mouse.ty}
+            #@simulator.holdShuttle @draggedShuttle
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -260,7 +279,7 @@ class Boilerplate
     @el.onmouseup = =>
       @releaseButton()
       @draggedShuttle = null
-      @simulator.releaseShuttle()
+      #@simulator.releaseShuttle()
 
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
@@ -305,14 +324,13 @@ class Boilerplate
       @draw()
 
   updateCursor: ->
-    return
     @canvas.style.cursor =
       if @activeTool is 'move'
         if @draggedShuttle
           '-webkit-grabbing'
-        else if @simulator.get(@mouse.tx, @mouse.ty) in ['shuttle', 'thinshuttle']
+        else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['shuttle', 'thinshuttle']
           '-webkit-grab'
-        else if @simulator.get(@mouse.tx, @mouse.ty) in ['buttonup', 'buttondown']
+        else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['buttonup', 'buttondown']
           'pointer'
         else
           'default'
@@ -337,7 +355,8 @@ class Boilerplate
     fromty ?= ty
 
     line fromtx, fromty, tx, ty, (x, y) =>
-      @simulator.set x, y, @activeTool
+      #@simulator.set x, y, @activeTool
+      # TODO: recompile
       @onEdit? x, y, @activeTool
 
   #########################
@@ -345,6 +364,7 @@ class Boilerplate
   #########################
   pressButton: (tx, ty) ->
     @pressedButton = []
+    ###
     if @simulator.get(tx, ty) == 'buttonup'
       fill {x:tx, y:ty}, (x, y) =>
         if @simulator.get(x, y) == 'buttonup'
@@ -353,6 +373,7 @@ class Boilerplate
           true
         else
           false
+    ###
   releaseButton: ->
     return unless @pressedButton
     for {x, y} in @pressedButton
@@ -404,7 +425,7 @@ class Boilerplate
     subgrid = {tw,th}
     for y in [ty..ty+th]
       for x in [tx..tx+tw]
-        if s = @simulator.grid[[x,y]]
+        if s = @compiled.grid[[x,y]]
           subgrid[[x-tx,y-ty]] = s
     subgrid
 
@@ -436,8 +457,9 @@ class Boilerplate
       for x in [0...@selection.tw]
         tx = mtx+x
         ty = mty+y
-        if (s = @selection[[x,y]]) != @simulator.get tx,ty
-          @simulator.set tx, ty, s
+        if (s = @selection[[x,y]]) != @compiled.grid[[tx,ty]]
+          # TODO: recompile
+          #@simulator.set tx, ty, s
           @onEdit? tx, ty, s
 
   copy: (e) ->
@@ -566,7 +588,7 @@ class Boilerplate
         @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
         @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-        @ctx.strokeStyle = if @simulator.get(mtx, mty) then 'black' else 'white'
+        @ctx.strokeStyle = if @compiled.grid["#{mtx},#{mty}"] then 'black' else 'white'
         @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
