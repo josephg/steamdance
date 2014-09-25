@@ -2,14 +2,15 @@
 
 compiler = require('boilerplate-compiler')
 
-compile = (grid, fillMode) ->
+compile = (grid) ->
   buffer = []
   # I could use a real stream here, but then my test would be asyncronous.
   stream =
     write: (str) -> buffer.push str
     end: ->
 
-  ast = compiler.compileGrid grid, {stream, module:'bare', fillMode}
+  start = Date.now()
+  ast = compiler.compileGrid grid, {stream, module:'bare', debug:no, fillMode:'engines'}
 
   code = buffer.join ''
 
@@ -17,6 +18,10 @@ compile = (grid, fillMode) ->
   #console.log code
   f = new Function(code)
   {states, calcPressure, updateShuttles, getPressure} = f()
+
+  end = Date.now()
+  console.log "Compiled to #{code.length} bytes of js in #{end - start} ms"
+
   {states, calcPressure, updateShuttles, getPressure, ast, grid}
 
 class Boilerplate
@@ -190,7 +195,20 @@ class Boilerplate
     @zoomLevel = clamp @zoomLevel, 1/20, 5
     @size = Math.floor 20 * @zoomLevel
 
+  ###
+  get: (tx, ty) ->
+    k = "#{tx},#{ty}"
+    sid = @compiled.ast.shuttleGrid[k]
+    if sid?
+      state = @compiled.states[sid]
+      shuttle = @compiled.ast.shuttles[sid]
+      {dx,dy} = shuttle.states[state]
+      return shuttle.points["#{tx-dx},#{ty-dy}"] || 'nothing'
+    else
+      @compiled.grid[k]
+  ###
 
+  getGrid: -> @compiled.grid
 
   constructor: (@el, options) ->
     @zoomLevel = 1
@@ -198,8 +216,8 @@ class Boilerplate
 
     @activeTool = 'move'
 
-    @compiled = compile options.grid
-    @compiled.calcPressure()
+    @grid = options.grid
+    @compile()
 
     # In tile coordinates
     @scroll_x = options.initialX || 0
@@ -270,14 +288,12 @@ class Boilerplate
             # find the shuttle id for the shuttle under the cursor
             sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
             shuttle = @compiled.ast.shuttles[sid]
-            {dx,dy} = shuttle.states[@compiled.states[sid]]
-            for {x,y},i in shuttle.points
-              if x+dx == @mouse.tx and y+dy == @mouse.ty
-                heldPoint = i
-            @draggedShuttle = {
-              id: sid
-              heldPoint: heldPoint
-            }
+            if !shuttle.immobile
+              {dx,dy} = shuttle.states[@compiled.states[sid]]
+              @draggedShuttle =
+                sid: sid
+                heldPoint: {x:@mouse.tx - dx, y:@mouse.ty - dy}
+
             #@simulator.holdShuttle @draggedShuttle
         else
           @mouse.mode = 'paint'
@@ -289,6 +305,8 @@ class Boilerplate
     @el.onmouseup = =>
       @releaseButton()
       @draggedShuttle = null
+      
+      @compile() if @needsCompile
       #@simulator.releaseShuttle()
 
       if @mouse.mode is 'select'
@@ -371,36 +389,37 @@ class Boilerplate
       else
         delete @compiled.grid[[x,y]]
       @onEdit? x, y, @activeTool
-    @recompile()
+    @gridChanged()
+
+  compile: ->
+    @needsCompile = no
+    @compiled = compile @grid
+    @compiled.calcPressure()
+    @states = new @compiled.states.constructor @compiled.states
     @draw()
 
-  recompile: ->
-    @compiled = compile @compiled.grid
-    @compiled.calcPressure()
+  gridChanged: ->
+    @needsCompile = true
     @draw()
 
   step: ->
-    if @draggedShuttle?
-      heldShuttleState = @compiled.states[@draggedShuttle.id]
+    return if @needsCompile
+
     @compiled.updateShuttles()
+    newStates = @compiled.states
+
     if @draggedShuttle?
-      @compiled.states[@draggedShuttle.id] = heldShuttleState
+      newStates[@draggedShuttle.sid] = @states[@draggedShuttle.sid]
+
+    @moveShuttle sid, v for v, sid in newStates
+
     @compiled.calcPressure()
-    @reifyGrid()
     @draw()
     @updateCursor()
 
-  reifyGrid: ->
-    for k,v of @compiled.grid
-      if v in ['thinshuttle', 'shuttle']
-        @compiled.grid[k] = 'nothing'
-
-    for s,sid in @compiled.ast.shuttles
-      stateId = @compiled.states[sid]
-      {dx, dy} = s.states[stateId]
-      for {x,y,v} in s.points
-        @compiled.grid[[x+dx,y+dy]] = v
-    return
+  moveShuttle: (sid, state) ->
+    compiler.util.moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, @states[sid], state
+    @states[sid] = state
 
   #########################
   # BUTTONS               #
@@ -426,21 +445,24 @@ class Boilerplate
   dragShuttleTo: (tx, ty) ->
     return unless @draggedShuttle?
 
-    shuttle = @compiled.ast.shuttles[@draggedShuttle.id]
+    return if @needsCompile
 
-    heldPoint = shuttle.points[@draggedShuttle.heldPoint]
+    {sid, heldPoint} = @draggedShuttle
+    shuttle = @compiled.ast.shuttles[sid]
+
     dist2 = ({x:x1,y:y1},{x:x2,y:y2}) -> dx = x2-x1; dy = y2-y1; dx*dx+dy*dy
     minDist = null
-    bestState = @compiled.states[@draggedShuttle.id]
+    bestState = @compiled.states[sid]
     for {dx, dy},state in shuttle.states
       if (d = dist2({x:heldPoint.x + dx, y:heldPoint.y + dy}, {x:tx, y:ty})) < minDist or !minDist?
         bestState = state
         minDist = d
 
-    @compiled.states[@draggedShuttle.id] = bestState
-    @reifyGrid()
-    #@compiled.calcPressure()
-    @draw()
+    if @states[sid] != bestState
+      @compiled.states[sid] = bestState
+      @moveShuttle sid, bestState
+      @compiled.calcPressure()
+      @draw()
 
   #########################
   # SELECTION             #
@@ -490,7 +512,7 @@ class Boilerplate
           else
             delete @compiled.grid[[tx,ty]]
           @onEdit? tx, ty, s
-    @recompile() if changed
+    @gridChanged() if changed
 
   copy: (e) ->
     #console.log 'copy'
@@ -545,19 +567,19 @@ class Boilerplate
         @ctx.fillRect px, py, @size, @size
 
         downCells = ['nothing', 'buttondown']
-        k2 = ''+[tx,ty-1]
-        v2 = @compiled.grid[k2]
-        v2 = 'nothing' if v2 in ['shuttle', 'thinshuttle']
+        v2 = @compiled.grid["#{tx},#{ty-1}"]
         if v in downCells and v != v2
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
 
-        
         rid = @compiled.ast.regionGrid[k]
-        if not rid?
+        unless rid?
+          # We might be able to find the region if its in a shuttle zone based
+          # on the state of the shuttle.
           if (sid = @compiled.ast.shuttleGrid[k])?
             shuttle = @compiled.ast.shuttles[sid]
             rid = shuttle.adjacentTo[k]?[@compiled.states[sid]]
+
         if rid?
           p = @compiled.getPressure(rid)
           if p != 0

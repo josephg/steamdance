@@ -15,7 +15,7 @@ loadGrid = ->
     try
       grid = JSON.parse gridStr
       console.log 'loaded', worldName if grid
-  grid
+  grid || {}
 
 
 grid = loadGrid()
@@ -24,7 +24,7 @@ bp = new Boilerplate el, grid: grid
 
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
-  localStorage.setItem "world #{worldName}", JSON.stringify bp.compiled.grid
+  localStorage.setItem "world #{worldName}", JSON.stringify bp.getGrid()
 
 setInterval save, 5000
 
@@ -37,6 +37,11 @@ bp.draw()
 setInterval =>
   bp.step()
 , 200
+
+window.onhashchange = ->
+  bp.grid = grid = loadGrid()
+  bp.compile()
+  bp.draw()
 
 window.onresize = ->
   console.log 'resize'
