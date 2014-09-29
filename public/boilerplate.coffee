@@ -286,6 +286,7 @@ class Boilerplate
             @pressButton @mouse.tx, @mouse.ty
           else if v in ['shuttle', 'thinshuttle']
             # find the shuttle id for the shuttle under the cursor
+            @compile() if @needsCompile
             sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
             shuttle = @compiled.ast.shuttles[sid]
             if !shuttle.immobile
@@ -306,8 +307,7 @@ class Boilerplate
       @releaseButton()
       @draggedShuttle = null
       
-      @compile() if @needsCompile
-      #@simulator.releaseShuttle()
+      #@compile() if @needsCompile
 
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
@@ -353,7 +353,7 @@ class Boilerplate
 
   updateCursor: ->
     @canvas.style.cursor =
-      if @activeTool is 'move'
+      if @activeTool is 'move' and !@imminent_select
         if @draggedShuttle?
           '-webkit-grabbing'
         else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['shuttle', 'thinshuttle']
