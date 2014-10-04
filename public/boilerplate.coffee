@@ -403,7 +403,8 @@ class Boilerplate
     @draw()
 
   step: ->
-    return if @needsCompile
+    @compile() if @needsCompile
+    #return if @needsCompile
 
     @compiled.updateShuttles()
     newStates = @compiled.states
