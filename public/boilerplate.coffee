@@ -24,6 +24,8 @@ compile = (grid) ->
 
   {states, calcPressure, updateShuttles, getPressure, ast, grid}
 
+lerp = (t, x, y) -> t * y + (1 - t) * x
+
 class Boilerplate
   fill = (initial_square, f) ->
     visited = {}
@@ -225,6 +227,8 @@ class Boilerplate
 
     @canScroll = options.canScroll ? true
 
+    @animTime = options.animTime || 0
+
     #@el = document.createElement 'div'
     #@el.className = 'boilerplate'
     @el.tabIndex = 0 if @el.tabIndex is -1 # allow keyboard events
@@ -395,6 +399,7 @@ class Boilerplate
     @needsCompile = no
     @compiled = compile @grid
     @compiled.calcPressure()
+    @prevStates = new @compiled.states.constructor @compiled.states
     @states = new @compiled.states.constructor @compiled.states
     @draw()
 
@@ -412,7 +417,11 @@ class Boilerplate
     if @draggedShuttle?
       newStates[@draggedShuttle.sid] = @states[@draggedShuttle.sid]
 
-    @moveShuttle sid, v for v, sid in newStates
+    for v, sid in newStates
+      @prevStates[sid] = @states[sid]
+      @moveShuttle sid, v
+
+    @lastStepAt = Date.now()
 
     @compiled.calcPressure()
     @draw()
@@ -546,8 +555,8 @@ class Boilerplate
     return if @needsDraw
     @needsDraw = true
     requestAnimationFrame =>
-      @drawFrame()
       @needsDraw = false
+      @drawFrame()
 
   drawFrame: ->
     @ctx.fillStyle = Boilerplate.colors['solid']
@@ -557,21 +566,38 @@ class Boilerplate
 
     @drawEditControls()
 
+
   drawGrid: ->
+    t = if @animTime && @lastStepAt
+      now = Date.now()
+      exact = Math.min 1, (now - @lastStepAt) / @animTime
+
+      ((exact * @size)|0) / @size
+    else
+      1
+
+    shuttleOverlay = []
+
     # Draw the tiles
     #pressure = @simulator.getPressure()
     for k,v of @compiled.grid
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+        if !@needsCompile and t <= 1 and v in ['shuttle', 'thinshuttle'] and @compiled.ast.shuttleGrid[k] != @draggedShuttle?.sid
+          shuttleOverlay.push {k, tx, ty, v}
+          v = 'nothing'
+
         @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
 
+        ###
         downCells = ['nothing', 'buttondown']
         v2 = @compiled.grid["#{tx},#{ty-1}"]
         if v in downCells and v != v2
           @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
           @ctx.fillRect px, py, @size, @size*0.3
+        ###
 
         rid = @compiled.ast.regionGrid[k]
         unless rid?
@@ -579,7 +605,8 @@ class Boilerplate
           # on the state of the shuttle.
           if (sid = @compiled.ast.shuttleGrid[k])?
             shuttle = @compiled.ast.shuttles[sid]
-            rid = shuttle.adjacentTo[k]?[@compiled.states[sid]]
+            rid = shuttle.adjacentTo[k]?[@states[sid]] ||
+              shuttle.adjacentTo[k]?[@prevStates[sid]]
 
         if rid?
           p = @compiled.getPressure(rid)
@@ -587,9 +614,30 @@ class Boilerplate
             @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
             @ctx.fillRect px, py, @size, @size
 
+    for {k, tx, ty, v} in shuttleOverlay
+      sid = @compiled.ast.shuttleGrid[k]
+      shuttle = @compiled.ast.shuttles[sid]
+      state = shuttle.states[@states[sid]]
+      prevState = shuttle.states[@prevStates[sid]]
+
+      prevtx = tx + prevState.dx - state.dx
+      prevty = ty + prevState.dy - state.dy
+
+      #@ctx.fillStyle = Boilerplate.colors.nothing
+      #@ctx.fillRect px, py, @size, @size
+
+      {px, py} = @worldToScreen lerp(t, prevtx, tx), lerp(t, prevty, ty)
+
+      @ctx.fillStyle = Boilerplate.colors[v]
+      @ctx.fillRect px, py, @size, @size
+
+
+
     zeroPos = @worldToScreen 0, 0
     @ctx.lineWidth = 3
     @ctx.strokeStyle = 'yellow'
+
+    @draw() if t != 1
 
   drawEditControls: ->
     mx = @mouse.x
