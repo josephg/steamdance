@@ -400,7 +400,7 @@ class Boilerplate
     @compiled = compile @grid
     @compiled.calcPressure()
     @prevStates = new @compiled.states.constructor @compiled.states
-    @states = new @compiled.states.constructor @compiled.states
+    @states = @compiled.states
     @draw()
 
   gridChanged: ->
@@ -411,15 +411,16 @@ class Boilerplate
     @compile() if @needsCompile
     #return if @needsCompile
 
+    for v, sid in @states
+      @prevStates[sid] = @states[sid]
+
     @compiled.updateShuttles()
-    newStates = @compiled.states
 
     if @draggedShuttle?
-      newStates[@draggedShuttle.sid] = @states[@draggedShuttle.sid]
+      @states[@draggedShuttle.sid] = @prevStates[@draggedShuttle.sid]
 
-    for v, sid in newStates
-      @prevStates[sid] = @states[sid]
-      @moveShuttle sid, v
+    for v, sid in @states
+      @moveShuttle sid, @prevStates[sid], v
 
     @lastStepAt = Date.now()
 
@@ -427,9 +428,8 @@ class Boilerplate
     @draw()
     @updateCursor()
 
-  moveShuttle: (sid, state) ->
-    compiler.util.moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, @states[sid], state
-    @states[sid] = state
+  moveShuttle: (sid, from, to) ->
+    compiler.util.moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
 
   #########################
   # BUTTONS               #
@@ -469,8 +469,8 @@ class Boilerplate
         minDist = d
 
     if @states[sid] != bestState
-      @compiled.states[sid] = bestState
-      @moveShuttle sid, bestState
+      @moveShuttle sid, @states[sid], bestState
+      @states[sid] = @prevStates[sid] = bestState
       @compiled.calcPressure()
       @draw()
 
@@ -566,7 +566,6 @@ class Boilerplate
 
     @drawEditControls()
 
-
   drawGrid: ->
     t = if @animTime && @lastStepAt
       now = Date.now()
@@ -584,9 +583,11 @@ class Boilerplate
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-        if !@needsCompile and t <= 1 and v in ['shuttle', 'thinshuttle'] and @compiled.ast.shuttleGrid[k] != @draggedShuttle?.sid
-          shuttleOverlay.push {k, tx, ty, v}
-          v = 'nothing'
+        if !@needsCompile and t <= 1 and v in ['shuttle', 'thinshuttle']
+          sid = @compiled.ast.shuttleGrid[k]
+          if !@compiled.ast.shuttles[sid].immobile
+            shuttleOverlay.push {k, tx, ty, v}
+            v = 'nothing'
 
         @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
