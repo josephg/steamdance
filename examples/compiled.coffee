@@ -20,7 +20,7 @@ loadGrid = ->
 
 grid = loadGrid()
 
-bp = new Boilerplate el, grid: grid, animTime:90
+bp = new Boilerplate el, grid: grid, animTime:200
 
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
