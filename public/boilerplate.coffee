@@ -618,18 +618,33 @@ class Boilerplate
  
         px2 = px; py2 = py; sizex = sizey = @size
 
-        if (e = shuttle.edges[k])
+        e = shuttle.edges[k]
+        if e
           b = if v is 'shuttle'
             @size * 0.04
           else
             #e = ~e
             @size * 0.3
           b = (b+1)|0
+          # top, right, bottom, left
           if e & 1 then py2 += b; sizey -= b
           if e & 2 then sizex -= b
           if e & 4 then sizey -= b
           if e & 8 then px2 += b; sizex -= b
         @ctx.fillRect px2, py2, sizex, sizey
+
+        if e
+          # Fill back in inner corners
+          @ctx.fillStyle = Boilerplate.colors.nothing
+          if (e & 0x9) == 0 && !shuttle.points["#{x-1},#{y-1}"] # top left
+            @ctx.fillRect px, py, b, b
+          if (e & 0x3) == 0 && !shuttle.points["#{x+1},#{y-1}"] # top right
+            @ctx.fillRect px + @size - b, py, b, b
+          if (e & 0x6) == 0 && !shuttle.points["#{x+1},#{y+1}"] # bot right
+            @ctx.fillRect px + @size - b, py + @size - b, b, b
+          if (e & 0xc) == 0 && !shuttle.points["#{x-1},#{y+1}"] # bot left
+            @ctx.fillRect px, py + @size - b, b, b
+
         
         ###
         if shuttle.edges[k]&4
