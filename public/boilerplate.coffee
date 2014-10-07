@@ -55,6 +55,7 @@ class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
+    # Deprecated
     buttondown: 'rgb(255,169,61)'
     buttonup: 'rgb(204,123,0)'
 
@@ -67,8 +68,10 @@ class Boilerplate
     solid: "hsl(249,3%,45%)"
     thinshuttle: "hsl(283,31%,49%)"
     thinsolid: "hsl(0, 0%, 49%)"
+    # Deprecated
     buttondown: 'rgb(255,169,61)'
     buttonup: 'rgb(171,99,18)'
+
   
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
@@ -115,7 +118,7 @@ class Boilerplate
         54: 'shuttle'
         55: 'thinshuttle'
         56: 'bridge'
-        57: 'buttonup'
+        #57: 'buttonup'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -125,7 +128,7 @@ class Boilerplate
         71: 'thinsolid' # g
         68: 'solid' # d
         66: 'bridge' # b
-        84: 'buttonup' # t
+        #84: 'buttonup' # t
       })[kc]
       if newTool
         @selection = @selectOffset = null
@@ -164,7 +167,6 @@ class Boilerplate
         @draw()
 
     el.addEventListener 'blur', =>
-      @releaseButton()
       @mouse.mode = null
       @imminent_select = false
       @draw()
@@ -287,9 +289,7 @@ class Boilerplate
       else
         if @activeTool is 'move'
           v = @compiled.grid["#{@mouse.tx},#{@mouse.ty}"]
-          if v is 'buttonup'
-            @pressButton @mouse.tx, @mouse.ty
-          else if v in ['shuttle', 'thinshuttle']
+          if v in ['shuttle', 'thinshuttle']
             # find the shuttle id for the shuttle under the cursor
             @compile() if @needsCompile
             sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
@@ -309,7 +309,6 @@ class Boilerplate
       @draw()
 
     @el.onmouseup = =>
-      @releaseButton()
       @draggedShuttle = null
       
       #@compile() if @needsCompile
@@ -332,7 +331,6 @@ class Boilerplate
       @mouse.x = @mouse.y = @mouse.from = @mouse.tx = @mouse.ty = null
       # ... But if we're drawing, stay in drawing mode.
       @mouse.mode = null# if @mouse.mode is 'select'
-      @releaseButton()
       @draw()
 
     @el.onmouseenter = (e) =>
@@ -363,8 +361,6 @@ class Boilerplate
           '-webkit-grabbing'
         else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['shuttle', 'thinshuttle']
           '-webkit-grab'
-        else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['buttonup', 'buttondown']
-          'pointer'
         else
           'default'
       else
@@ -447,27 +443,6 @@ class Boilerplate
 
   moveShuttle: (sid, from, to) ->
     compiler.util.moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
-
-  #########################
-  # BUTTONS               #
-  #########################
-  pressButton: (tx, ty) ->
-    @pressedButton = []
-    ###
-    if @simulator.get(tx, ty) == 'buttonup'
-      fill {x:tx, y:ty}, (x, y) =>
-        if @simulator.get(x, y) == 'buttonup'
-          @simulator.set x, y, 'buttondown'
-          @pressedButton.push {x, y}
-          true
-        else
-          false
-    ###
-  releaseButton: ->
-    return unless @pressedButton
-    for {x, y} in @pressedButton
-      @simulator.set x, y, 'buttonup' if @simulator.get(x,y) == 'buttondown'
-    @pressedButton = null
 
   dragShuttleTo: (tx, ty) ->
     return unless @draggedShuttle?
@@ -665,8 +640,6 @@ class Boilerplate
     else
       1
 
-    #shuttlesToDraw = {}
-
     # Draw the tiles
     #pressure = @simulator.getPressure()
     for k,v of @compiled.grid
@@ -674,21 +647,11 @@ class Boilerplate
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
         if !@needsCompile and v in ['shuttle', 'thinshuttle']
-          #sid = @compiled.ast.shuttleGrid[k]
-          #shuttlesToDraw[sid] = sid
           # Draw the blank (white) under the shuttle.
           @ctx.fillStyle = Boilerplate.colors.nothing
         else
           @ctx.fillStyle = Boilerplate.colors[v]
         @ctx.fillRect px, py, @size, @size
-
-        ###
-        downCells = ['nothing', 'shuttle', 'thinshuttle']
-        v2 = @compiled.grid["#{tx},#{ty-1}"]
-        if v in downCells and v2 not in ['shuttle', 'thinshuttle']
-          @ctx.fillStyle = Boilerplate.darkColors[v2 ? 'solid']
-          @ctx.fillRect px, py, @size, @size*0.3
-        ###
 
         rid = @compiled.ast.regionGrid[k]
         unless rid?
