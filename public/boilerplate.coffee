@@ -633,41 +633,16 @@ class Boilerplate
           if e & 8 then px2 += b; sizex -= b
         @ctx.fillRect px2, py2, sizex, sizey
 
-        if e
-          # Fill back in inner corners
-          @ctx.fillStyle = Boilerplate.colors.nothing
-          if (e & 0x9) == 0 && !shuttle.points["#{x-1},#{y-1}"] # top left
-            @ctx.fillRect px, py, b, b
-          if (e & 0x3) == 0 && !shuttle.points["#{x+1},#{y-1}"] # top right
-            @ctx.fillRect px + @size - b, py, b, b
-          if (e & 0x6) == 0 && !shuttle.points["#{x+1},#{y+1}"] # bot right
-            @ctx.fillRect px + @size - b, py + @size - b, b, b
-          if (e & 0xc) == 0 && !shuttle.points["#{x-1},#{y+1}"] # bot left
-            @ctx.fillRect px, py + @size - b, b, b
-
-        
-        ###
-        if shuttle.edges[k]&4
-          # Draw down edge
-          if moving is 'y'
-            below = @grid["#{x+dx},#{1+Math.ceil y+dy}"]
-            amt = if below is 'nothing'
-              1
-            else
-              if dy > 0
-                1 - dy
-              else
-                -dy
-          else if dx
-
-          else
-            below = @grid["#{x+dx},#{1+y+dy}"]
-            amt = if below is 'nothing' then 1 else 0
-
-          @ctx.fillStyle = Boilerplate.darkColors[v]
-          amt = Math.min amt, 0.3
-          @ctx.fillRect px, py+@size, @size, @size*amt
-        ###
+        # Fill back in inner corners
+        @ctx.fillStyle = Boilerplate.colors.nothing
+        if (e & 0x9) == 0 && !shuttle.points["#{x-1},#{y-1}"] # top left
+          @ctx.fillRect px, py, b, b
+        if (e & 0x3) == 0 && !shuttle.points["#{x+1},#{y-1}"] # top right
+          @ctx.fillRect px + @size - b, py, b, b
+        if (e & 0x6) == 0 && !shuttle.points["#{x+1},#{y+1}"] # bot right
+          @ctx.fillRect px + @size - b, py + @size - b, b, b
+        if (e & 0xc) == 0 && !shuttle.points["#{x-1},#{y+1}"] # bot left
+          @ctx.fillRect px, py + @size - b, b, b
         
         if v is 'thinshuttle'
           k2 = if state then "#{x+state.dx},#{y+state.dy}" else k
