@@ -91,7 +91,6 @@ class Rectacular
       return null
     program
 
-
   cssColorToRGB = do ->
     s = document.createElement('span')
     s.id = '-color-converter'
@@ -113,7 +112,7 @@ class Rectacular
       cache[cssColor] = [r/255, g/255, b/255, a]
 
   constructor: (canvas) ->
-    @gl = canvas.getContext 'experimental-webgl'
+    @gl = canvas.getContext 'webgl'
     vertexShader = loadShader(@gl, vertSource, @gl.VERTEX_SHADER)
     fragmentShader = loadShader(@gl, fragSource, @gl.FRAGMENT_SHADER)
     program = loadProgram(@gl, [vertexShader, fragmentShader])
@@ -121,9 +120,10 @@ class Rectacular
 
     @positionLocation = @gl.getAttribLocation(program, "a_position")
     @colorLocation = @gl.getAttribLocation(program, "a_color")
-    resolutionLocation = @gl.getUniformLocation(program, "u_resolution")
+    @resolutionLocation = @gl.getUniformLocation(program, "u_resolution")
     #console.log "setting resolution uniform to #{canvas.width}, #{canvas.height}"
-    @gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
+    @gl.uniform2f(@resolutionLocation, canvas.width, canvas.height)
+    @resizeTo canvas.width, canvas.height
 
     @vbuf = @gl.createBuffer()
     @gl.bindBuffer @gl.ARRAY_BUFFER, @vbuf
@@ -139,6 +139,12 @@ class Rectacular
     @colors = []
     @fillStyle = 'rgba(0,255,0,1.0)'
     @strokeStyle = 'rgba(0,255,0,1.0)'
+
+  resizeTo: (width, height) ->
+    @gl.viewport 0, 0, width, height
+    @gl.uniform2f @resolutionLocation, width, height
+
+
 
   fillRect: (l, t, w, h) ->
     r = l+w
@@ -188,8 +194,8 @@ class Rectacular
     @gl.vertexAttribPointer(@colorLocation, 4, @gl.FLOAT, false, 0, 0)
 
     @gl.drawArrays(@gl.TRIANGLES, 0, @tris.length/2)
-    @tris = []
-    @colors = []
+    @tris.length = 0
+    @colors.length = 0
 
 class Boilerplate
   fill = (initial_square, f) ->
@@ -404,7 +410,10 @@ class Boilerplate
 
     @el.boilerplate = this
 
-    @resizeTo el.offsetWidth, el.offsetHeight
+    @canvas.width = el.offsetWidth
+    @canvas.height = el.offsetHeight
+    @ctx = new Rectacular @canvas
+
     #@el.onresize = -> console.log 'yo'
 
     @mouse = {x:null,y:null, mode:null}
@@ -535,9 +544,9 @@ class Boilerplate
     @canvas.height = height
     #@canvas.style.width = width + 'px'
     #@canvas.style.height = height + 'px'
-    console.log "resized to #{width}x#{height}"
+    #console.log "resized to #{width}x#{height}"
     
-    @ctx = new Rectacular @canvas
+    @ctx.resizeTo width, height
 
     @draw()
 
@@ -839,6 +848,7 @@ class Boilerplate
       @drawShuttle t, sid
 
     @draw() if t != 1
+    return
 
   drawEditControls: ->
     mx = @mouse.x
