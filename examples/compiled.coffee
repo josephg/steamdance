@@ -1,8 +1,27 @@
 Boilerplate = require '../public/boilerplate.coffee'
 
+isEmpty = (obj) ->
+  return false for k of obj
+  return true
+
 el = document.getElementById 'bp'
 
 worldLabel = document.getElementById 'worldlabel'
+
+worldList = document.getElementById 'worldlist'
+do populate = ->
+  while worldList.firstChild
+    worldList.removeChild worldList.firstChild
+  r = /^world (.*)$/
+  for i in [0...localStorage.length]
+    k = localStorage.key i
+    m = r.exec k
+    continue unless m
+    name = m[1]
+
+    option = document.createElement 'option'
+    option.value = name
+    worldList.appendChild option
 
 worldName = null
 loadGrid = (name) ->
@@ -10,6 +29,8 @@ loadGrid = (name) ->
   console.log "loading #{worldName}"
   location.hash = "##{worldName}"
   worldLabel.value = worldName
+
+  populate()
 
   gridStr = localStorage.getItem "world #{worldName}"
   if gridStr != ''
@@ -23,17 +44,20 @@ grid = loadGrid location.hash?[1..] || 'boilerplate'
 
 bp = window.bp = new Boilerplate el, grid: grid, animTime:200, useWebGL:no
 
-bp.onEditFinish = save = ->
-  console.log 'saving', worldName
-  localStorage.setItem "world #{worldName}", JSON.stringify bp.getGrid()
-
-setInterval save, 5000
-
 el.focus()
 
 bp.addKeyListener window
 
 bp.draw()
+
+bp.onEditFinish = save = ->
+  #console.log 'saving', worldName
+  grid = bp.getGrid()
+  if isEmpty grid
+    localStorage.removeItem "world #{worldName}"
+  else
+    localStorage.setItem "world #{worldName}", JSON.stringify grid
+setInterval save, 5000
 
 setInterval =>
   bp.step()
@@ -43,24 +67,15 @@ worldLabel.onkeydown = (e) ->
   if e.keyCode is 27 # escape
     worldLabel.value = worldName
     worldLabel.blur()
+
 worldLabel.onchange = (e) ->
-  #console.log 'onchange', e
-  bp.setGrid loadGrid worldLabel.value
   worldLabel.blur()
 
-worldList = document.getElementById 'worldlist'
-do populate = ->
-  r = /^world (.*)$/
-  for i in [0...localStorage.length]
-    k = localStorage.key i
-    m = r.exec k
-    continue unless m
-    name = m[1]
+worldLabel.oninput = (e) ->
+  bp.setGrid loadGrid worldLabel.value
 
-    option = document.createElement 'option'
-    option.value = name
-    worldList.appendChild option
-
+worldLabel.onkeydown = (e) ->
+  e.cancelBubble = true
 
 window.onhashchange = ->
   hash = location.hash
