@@ -3,6 +3,12 @@ compiler = require 'boilerplate-compiler'
 
 {WebGLContext} = require './gl'
 
+KEY =
+  up: 1
+  right: 2
+  down: 4
+  left: 8
+
 compile = (grid) ->
   buffer = []
   # I could use a real stream here, but then my test would be asyncronous.
@@ -55,23 +61,6 @@ module.exports = class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
-    # Deprecated
-    buttondown: 'rgb(255,169,61)'
-    buttonup: 'rgb(204,123,0)'
-
-  @darkColors =
-    bridge: "hsl(203,34%,43%)"
-    negative: "hsl(16,40%,36%)"
-    nothing: 'hsl(0, 0%, 100%)'
-    positive: "hsl(120,30%,43%)"
-    shuttle: "hsl(287,24%,33%)"
-    solid: "hsl(249,3%,45%)"
-    thinshuttle: "hsl(283,31%,49%)"
-    thinsolid: "hsl(0, 0%, 49%)"
-    # Deprecated
-    buttondown: 'rgb(255,169,61)'
-    buttonup: 'rgb(171,99,18)'
-
   
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
@@ -134,15 +123,18 @@ module.exports = class Boilerplate
         @selection = @selectOffset = null
         @changeTool newTool
 
+      if 37 <= e.keyCode <= 40
+        @lastKeyScroll = Date.now()
+
       switch kc
         when 37 # left
-          @scroll_x -= 100/@size if @canScroll
+          @keysPressed |= KEY.left
         when 39 # right
-          @scroll_x += 100/@size if @canScroll
+          @keysPressed |= KEY.right
         when 38 # up
-          @scroll_y -= 100/@size if @canScroll
+          @keysPressed |= KEY.up
         when 40 # down
-          @scroll_y += 100/@size if @canScroll
+          @keysPressed |= KEY.down
 
         when 16 # shift
           @imminent_select = true
@@ -162,9 +154,23 @@ module.exports = class Boilerplate
       @draw()
 
     el.addEventListener 'keyup', (e) =>
-      if e.keyCode == 16 # shift
-        @imminent_select = false
-        @draw()
+      if 37 <= e.keyCode <= 40
+        @lastKeyScroll = Date.now()
+
+      switch e.keyCode
+        when 16 # shift
+          @imminent_select = false
+          @draw()
+
+        when 37 # left
+          @keysPressed &= ~KEY.left
+        when 39 # right
+          @keysPressed &= ~KEY.right
+        when 38 # up
+          @keysPressed &= ~KEY.up
+        when 40 # down
+          @keysPressed &= ~KEY.down
+
 
     el.addEventListener 'blur', =>
       @mouse.mode = null
@@ -222,6 +228,9 @@ module.exports = class Boilerplate
   constructor: (@el, options) ->
     @zoomLevel = 1
     @zoomBy 0
+
+    @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
+    @lastKeyScroll = 0 # epoch time
 
     @activeTool = 'move'
 
@@ -449,6 +458,8 @@ module.exports = class Boilerplate
     #@compile() if @needsCompile
     return if @needsCompile
 
+    anythingChanged = no
+
     for v, sid in @states
       @prevStates[sid] = @states[sid]
 
@@ -458,13 +469,16 @@ module.exports = class Boilerplate
       @states[@draggedShuttle.sid] = @prevStates[@draggedShuttle.sid]
 
     for v, sid in @states
-      @moveShuttle sid, @prevStates[sid], v
+      if @prevStates[sid] != v
+        anythingChanged = yes
+        @moveShuttle sid, @prevStates[sid], v
 
     @lastStepAt = Date.now()
 
-    @compiled.calcPressure()
-    @draw()
-    @updateCursor()
+    if anythingChanged
+      @compiled.calcPressure()
+      @draw()
+      @updateCursor()
 
   moveShuttle: (sid, from, to) ->
     moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
@@ -550,7 +564,7 @@ module.exports = class Boilerplate
     e.preventDefault()
 
   paste: (e) ->
-    console.log 'paste'
+    #console.log 'paste'
     data = e.clipboardData.getData 'text'
     if data
       try
@@ -573,7 +587,24 @@ module.exports = class Boilerplate
     @needsDraw = true
     requestAnimationFrame =>
       @needsDraw = false
+
+      # This is a weird place to do keyboard scrolling, but if we do it in
+      # step() it'll only happen once every few hundred ms.
+      if @keysPressed
+        #console.log @keysPressed
+        now = Date.now()
+        amt = 0.5 * Math.min now - @lastKeyScroll, 300
+
+        @scroll_y -= amt/@size if @keysPressed & KEY.up
+        @scroll_x += amt/@size if @keysPressed & KEY.right
+        @scroll_y += amt/@size if @keysPressed & KEY.down
+        @scroll_x -= amt/@size if @keysPressed & KEY.left
+
+        @lastKeyScroll = now
+
       @drawFrame()
+
+      @draw() if @keysPressed
 
   drawFrame: ->
     @ctx.fillStyle = Boilerplate.colors['solid']
@@ -589,6 +620,9 @@ module.exports = class Boilerplate
   drawShuttle: (t, sid) ->
     shuttle = @compiled.ast.shuttles[sid]
 
+    drawnAnything = no
+    moving = no
+
     if !shuttle.immobile
       stateid = @states[sid]
       state = shuttle.states[stateid]
@@ -598,12 +632,13 @@ module.exports = class Boilerplate
         prevstateid = @prevStates[sid]
         prevstate = shuttle.states[prevstateid]
 
-        moving = if dx != prevstate.dx
-          dx = lerp t, prevstate.dx, dx
-          'x'
-        else if dy != prevstate.dy
-          dy = lerp t, prevstate.dy, dy
-          'y'
+        if stateid != prevstateid
+          moving = yes
+
+          if dx != prevstate.dx
+            dx = lerp t, prevstate.dx, dx
+          else if dy != prevstate.dy
+            dy = lerp t, prevstate.dy, dy
 
     else
       dx = dy = 0
@@ -614,6 +649,7 @@ module.exports = class Boilerplate
       {px, py} = @worldToScreen x+dx, y+dy
 
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+        drawnAnything = yes
 
         @ctx.fillStyle = Boilerplate.colors[v]
         #@ctx.fillStyle = Boilerplate.colors.shuttle
@@ -655,7 +691,8 @@ module.exports = class Boilerplate
               @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
               @ctx.fillRect px, py, @size, @size
 
-    return
+    # Return whether this shuttle needs to be redrawn again.
+    return drawnAnything and moving
 
 
   drawGrid: ->
@@ -677,29 +714,35 @@ module.exports = class Boilerplate
           # Draw the blank (white) under the shuttle.
           @ctx.fillStyle = Boilerplate.colors.nothing
         else
-          @ctx.fillStyle = Boilerplate.colors[v]
+          @ctx.fillStyle = Boilerplate.colors[v] || 'red'
         @ctx.fillRect px, py, @size, @size
 
-        rid = @compiled.ast.regionGrid[k]
-        unless rid?
+        # Pressure!
+        pressure = if v is 'bridge'
+          top = @compiled.ast.edgeGrid["#{k},true"]
+          left = @compiled.ast.edgeGrid["#{k},false"]
+          @compiled.getPressure(top) + @compiled.getPressure(left)
+        else if v
           # We might be able to find the region if its in a shuttle zone based
           # on the state of the shuttle.
           if (sid = @compiled.ast.shuttleGrid[k])?
             shuttle = @compiled.ast.shuttles[sid]
-            rid = shuttle.adjacentTo[k]?[@states[sid]] ||
-              shuttle.adjacentTo[k]?[@prevStates[sid]]
+            rid = shuttle.adjacentTo[k]?[@states[sid]] ? shuttle.adjacentTo[k]?[@prevStates[sid]]
+          else
+            rid = @compiled.ast.regionGrid[k]
 
-        if rid?
-          p = @compiled.getPressure(rid)
-          if p != 0
-            @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
-            @ctx.fillRect px, py, @size, @size
+          if rid? then @compiled.getPressure(rid) else 0
 
+        if pressure != 0
+          @ctx.fillStyle = if pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
+          @ctx.fillRect px, py, @size, @size
+
+    needsRedraw = 0
     if !@needsCompile
       for _,sid in @compiled.ast.shuttles
-        @drawShuttle t, sid
+        if @drawShuttle(t, sid) then needsRedraw = true
 
-    @draw() if t != 1
+    @draw() if t != 1 and needsRedraw
     return
 
   drawEditControls: ->
