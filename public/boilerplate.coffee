@@ -1,6 +1,7 @@
-{parseXY} = Simulator
+compiler = require 'boilerplate-compiler'
+{parseXY, moveShuttle} = compiler.util
 
-compiler = require('boilerplate-compiler')
+{WebGLContext} = require './gl'
 
 compile = (grid) ->
   buffer = []
@@ -26,178 +27,7 @@ compile = (grid) ->
 
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
-
-class Rectacular
-  vertSource = """
-  attribute vec2 a_position;
-  attribute vec4 a_color;
-  varying lowp vec4 v_color;
-
-  uniform vec2 u_resolution;
-
-  void main() {
-     // convert the rectangle from pixels to 0.0 to 1.0
-     vec2 zeroToOne = a_position / u_resolution;
-
-     // convert from 0->1 to 0->2
-     vec2 zeroToTwo = zeroToOne * 2.0;
-
-     // convert from 0->2 to -1->+1 (clipspace)
-     vec2 clipSpace = zeroToTwo - 1.0;
-
-     gl_Position = vec4(clipSpace * vec2(1,-1), 0, 1);
-     v_color = a_color;
-  }
-  """
-
-  fragSource = """
-  varying lowp vec4 v_color;
-  void main() {
-    gl_FragColor = v_color;
-  }
-  """
-
-  loadShader = (gl, shaderSource, shaderType, opt_errorCallback) ->
-    shader = gl.createShader(shaderType)
-    gl.shaderSource(shader, shaderSource)
-    gl.compileShader(shader)
-    compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
-    if !compiled
-      lastError = gl.getShaderInfoLog(shader)
-      console.error("*** Error compiling shader '" + shader + "':" + lastError)
-      gl.deleteShader(shader)
-      return null
-    shader
-
-  loadProgram = (gl, shaders, opt_attribs, opt_locations) ->
-    program = gl.createProgram()
-    for s in shaders
-      gl.attachShader(program, s)
-    if opt_attribs
-      for attrib, i in opt_attribs
-        gl.bindAttribLocation(
-          program,
-          if opt_locations then opt_locations[i] else i,
-          attrib
-        )
-    gl.linkProgram(program)
-
-    linked = gl.getProgramParameter(program, gl.LINK_STATUS)
-    if !linked
-      lastError = gl.getProgramInfoLog(program)
-      console.error("Error in program linking:" + lastError)
-
-      gl.deleteProgram(program)
-      return null
-    program
-
-  cssColorToRGB = do ->
-    s = document.createElement('span')
-    s.id = '-color-converter'
-    s.style.position = 'absolute'
-    s.style.left = '-9999px'
-    s.style.top = '-9999px'
-    document.body.appendChild(s)
-    cache = {}
-    (cssColor) ->
-      if cache[cssColor] then return cache[cssColor]
-      s.style.backgroundColor = cssColor
-      rgb = getComputedStyle(s).backgroundColor
-      m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(rgb)
-      if !m then m = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(rgb)
-      r = parseInt(m[1])
-      g = parseInt(m[2])
-      b = parseInt(m[3])
-      a = if m[4] then parseFloat(m[4]) else 1.0
-      cache[cssColor] = [r/255, g/255, b/255, a]
-
-  constructor: (canvas) ->
-    @gl = canvas.getContext 'webgl'
-    vertexShader = loadShader(@gl, vertSource, @gl.VERTEX_SHADER)
-    fragmentShader = loadShader(@gl, fragSource, @gl.FRAGMENT_SHADER)
-    program = loadProgram(@gl, [vertexShader, fragmentShader])
-    @gl.useProgram(program)
-
-    @positionLocation = @gl.getAttribLocation(program, "a_position")
-    @colorLocation = @gl.getAttribLocation(program, "a_color")
-    @resolutionLocation = @gl.getUniformLocation(program, "u_resolution")
-    #console.log "setting resolution uniform to #{canvas.width}, #{canvas.height}"
-    @gl.uniform2f(@resolutionLocation, canvas.width, canvas.height)
-    @resizeTo canvas.width, canvas.height
-
-    @vbuf = @gl.createBuffer()
-    @gl.bindBuffer @gl.ARRAY_BUFFER, @vbuf
-    @gl.bufferData @gl.ARRAY_BUFFER, 4*1000000*4, @gl.STATIC_DRAW
-    @cbuf = @gl.createBuffer()
-    @gl.bindBuffer @gl.ARRAY_BUFFER, @cbuf
-    @gl.bufferData @gl.ARRAY_BUFFER, 4*1000000*6, @gl.STATIC_DRAW
-
-    @gl.blendFunc @gl.SRC_ALPHA, @gl.ONE_MINUS_SRC_ALPHA
-    @gl.enable @gl.BLEND
-
-    @tris = []
-    @colors = []
-    @fillStyle = 'rgba(0,255,0,1.0)'
-    @strokeStyle = 'rgba(0,255,0,1.0)'
-
-  resizeTo: (width, height) ->
-    @gl.viewport 0, 0, width, height
-    @gl.uniform2f @resolutionLocation, width, height
-
-
-
-  fillRect: (l, t, w, h) ->
-    r = l+w
-    b = t+h
-    @tris.push.apply @tris, [
-      l, t
-      r, t
-      l, b
-      l, b
-      r, t
-      r, b
-    ]
-    [r, g, b, a] = cssColorToRGB @fillStyle
-    @colors.push.apply @colors, [
-      r, g, b, a
-      r, g, b, a
-      r, g, b, a
-      r, g, b, a
-      r, g, b, a
-      r, g, b, a
-    ]
-
-  strokeRect: (l, t, w, h) ->
-    oldFill = @fillStyle
-    @fillStyle = @strokeStyle
-    @fillRect l, t, w, 1
-    @fillRect l, t+1, 1, h-1
-    @fillRect l+w-1, t+1, 1, h-1
-    @fillRect l+1, t+h-1, w-2, 1
-    @fillStyle = oldFill
-
-  flush: ->
-    @gl.bindBuffer(@gl.ARRAY_BUFFER, @vbuf)
-    # ugh
-    max = 20000*6
-    for i in [0..(@tris.length/max)|0]
-      subData = new Float32Array @tris[i*max...((i+1)*max)]
-      @gl.bufferSubData(@gl.ARRAY_BUFFER, i*max*4, subData)
-    @gl.enableVertexAttribArray(@positionLocation)
-    @gl.vertexAttribPointer(@positionLocation, 2, @gl.FLOAT, false, 0, 0)
-
-    @gl.bindBuffer(@gl.ARRAY_BUFFER, @cbuf)
-    for i in [0..(@colors.length/max)|0]
-      subData = new Float32Array @colors[i*max...((i+1)*max)]
-      @gl.bufferSubData(@gl.ARRAY_BUFFER, i*max*4, subData)
-    @gl.enableVertexAttribArray(@colorLocation)
-    @gl.vertexAttribPointer(@colorLocation, 4, @gl.FLOAT, false, 0, 0)
-
-    @gl.drawArrays(@gl.TRIANGLES, 0, @tris.length/2)
-    @tris.length = 0
-    @colors.length = 0
-
-class Boilerplate
+module.exports = class Boilerplate
   fill = (initial_square, f) ->
     visited = {}
     visited["#{initial_square.x},#{initial_square.y}"] = true
@@ -306,13 +136,13 @@ class Boilerplate
 
       switch kc
         when 37 # left
-          @scroll_x -= 1 if @canScroll
+          @scroll_x -= 100/@size if @canScroll
         when 39 # right
-          @scroll_x += 1 if @canScroll
+          @scroll_x += 100/@size if @canScroll
         when 38 # up
-          @scroll_y -= 1 if @canScroll
+          @scroll_y -= 100/@size if @canScroll
         when 40 # down
-          @scroll_y += 1 if @canScroll
+          @scroll_y += 100/@size if @canScroll
 
         when 16 # shift
           @imminent_select = true
@@ -384,6 +214,10 @@ class Boilerplate
   ###
 
   getGrid: -> @compiled.grid
+  setGrid: (grid) ->
+    @grid = grid
+    @compile yes
+    @draw()
 
   constructor: (@el, options) ->
     @zoomLevel = 1
@@ -392,7 +226,7 @@ class Boilerplate
     @activeTool = 'move'
 
     @grid = options.grid
-    @compile()
+    @compile yes
 
     # In tile coordinates
     @scroll_x = options.initialX || 0
@@ -402,6 +236,8 @@ class Boilerplate
 
     @animTime = options.animTime || 0
 
+    @useWebGL = options.useWebGL || false
+
     #@el = document.createElement 'div'
     #@el.className = 'boilerplate'
     @el.tabIndex = 0 if @el.tabIndex is -1 # allow keyboard events
@@ -410,9 +246,16 @@ class Boilerplate
 
     @el.boilerplate = this
 
-    @canvas.width = el.offsetWidth
-    @canvas.height = el.offsetHeight
-    @ctx = new Rectacular @canvas
+    if @useWebGL
+      @ctx = new WebGLContext @canvas
+      console.log "using webgl"
+    else
+      console.log "using canvas"
+
+    #@canvas.width = el.offsetWidth
+    #@canvas.height = el.offsetHeight
+    @resizeTo el.offsetWidth, el.offsetHeight
+
 
     #@el.onresize = -> console.log 'yo'
 
@@ -435,8 +278,8 @@ class Boilerplate
       @el.onmousedown e if e.button && !@mouse.mode
 
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
-      @mouse.x = clamp e.offsetX, 0, @el.offsetWidth - 1
-      @mouse.y = clamp e.offsetY, 0, @el.offsetHeight - 1
+      @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
+      @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
       {tx, ty} = @screenToWorld @mouse.x, @mouse.y
 
       if tx != @mouse.tx || ty != @mouse.ty
@@ -484,7 +327,7 @@ class Boilerplate
     @el.onmouseup = =>
       @draggedShuttle = null
       
-      #@compile() if @needsCompile
+      @compile() if @needsCompile
 
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
@@ -507,21 +350,22 @@ class Boilerplate
       @draw()
 
     @el.onmouseenter = (e) =>
-      if e.which
+      if e.button
         @el.onmousemove e
         @el.onmousedown e
 
-    @el.onmousewheel = (e) =>
+    @el.onwheel = (e) =>
+      #console.log e.wheelDeltaX, e.deltaX, e.deltaMode
       return unless @canScroll
       if e.shiftKey
         oldsize = @size
-        @zoomBy e.wheelDeltaY / 800
+        @zoomBy -e.deltaY / 400
 
         @scroll_x += @mouse.x / oldsize - @mouse.x / @size
         @scroll_y += @mouse.y / oldsize - @mouse.y / @size
       else
-        @scroll_x += e.wheelDeltaX / (-2 * @size)
-        @scroll_y += e.wheelDeltaY / (-2 * @size)
+        @scroll_x += e.deltaX / @size
+        @scroll_y += e.deltaY / @size
       {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       e.preventDefault()
       @updateCursor()
@@ -540,13 +384,19 @@ class Boilerplate
         'crosshair'
 
   resizeTo: (width, height) ->
-    @canvas.width = width
-    @canvas.height = height
-    #@canvas.style.width = width + 'px'
-    #@canvas.style.height = height + 'px'
     #console.log "resized to #{width}x#{height}"
     
-    @ctx.resizeTo width, height
+    if @useWebGL
+      @canvas.width = width
+      @canvas.height = height
+      @ctx.resizeTo width, height
+    else
+      @canvas.width = width * devicePixelRatio
+      @canvas.height = height * devicePixelRatio
+      @canvas.style.width = width + 'px'
+      @canvas.style.height = height + 'px'
+      @ctx = @canvas.getContext '2d'
+      @ctx.scale devicePixelRatio, devicePixelRatio
 
     @draw()
 
@@ -566,7 +416,8 @@ class Boilerplate
       @onEdit? x, y, @activeTool
     @gridChanged()
 
-  compile: ->
+  compile: (force) ->
+    return if !force && !@needsCompile
     @needsCompile = no
     @compiled = compile @grid
 
@@ -595,8 +446,8 @@ class Boilerplate
     @draw()
 
   step: ->
-    @compile() if @needsCompile
-    #return if @needsCompile
+    #@compile() if @needsCompile
+    return if @needsCompile
 
     for v, sid in @states
       @prevStates[sid] = @states[sid]
@@ -616,7 +467,7 @@ class Boilerplate
     @updateCursor()
 
   moveShuttle: (sid, from, to) ->
-    compiler.util.moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
+    moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
 
   dragShuttleTo: (tx, ty) ->
     return unless @draggedShuttle?
@@ -732,7 +583,7 @@ class Boilerplate
 
     @drawEditControls()
 
-    @ctx.flush()
+    @ctx.flush?()
 
 
   drawShuttle: (t, sid) ->
@@ -775,7 +626,7 @@ class Boilerplate
             @size * 0.04
           else
             #e = ~e
-            @size * 0.3
+            @size * 0.25
           b = (b+1)|0
           # top, right, bottom, left
           if e & 1 then py2 += b; sizey -= b
@@ -844,8 +695,9 @@ class Boilerplate
             @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
             @ctx.fillRect px, py, @size, @size
 
-    for _,sid in @compiled.ast.shuttles
-      @drawShuttle t, sid
+    if !@needsCompile
+      for _,sid in @compiled.ast.shuttles
+        @drawShuttle t, sid
 
     @draw() if t != 1
     return

@@ -1,7 +1,8 @@
-.PHONY: all
+.PHONY: watch
 
-all: examples/compiler.js
-	coffee -cbw public examples
+watch:
+	watchify -i graphviz -n -t coffeeify --extension=".coffee" examples/compiled.coffee -o examples/compiled.js -v
 
-examples/compiler.js: node_modules/boilerplate-compiler/parser.js
-	browserify -i graphviz -r boilerplate-compiler >| examples/compiler.js
+examples/compiled.js: fullscreen/*.coffee examples/compiled.coffee node_modules/boilerplate-compiler/*.js
+	browserify -i graphviz -n -t coffeeify --extension=".coffee" examples/compiled.coffee -o examples/compiled.js -v
+
