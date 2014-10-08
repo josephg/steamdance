@@ -8,6 +8,10 @@ body, html {
   font-family: 'Play', sans-serif;
 }
 
+a {
+  color: hsl(203, 67%, 51%);
+  text-decoration: none;
+}
 
 .boilerplate {
   position: relative;
@@ -23,19 +27,28 @@ body, html {
   cursor: crosshair;
 }
 
-.worldnamecontainer {
+.overlay {
   z-index: 1;
   position: fixed;
-  top: 0;
-  left: 0;
-  padding: 5px 5px 5px 5px;
+
+  padding: 5px;
   background-color: hsla(184, 49%, 7%, 0.5);
+  cursor: default;
+  color: white;
 
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  cursor: default;
-  color: white;
+}
+
+.topleft {
+  top: 0;
+  left: 0;
+}
+
+.topright {
+  top: 0;
+  right: 0;
 }
 
 #worldlabel {
@@ -49,8 +62,12 @@ body, html {
 </style>
 <div id="bp" tabIndex=0 autofocus class="boilerplate"></div>
 
-<div class='worldnamecontainer'>
+<div class='overlay topleft'>
   <span>local/ #</span><input type='text' id='worldlabel' list='worldlist'>
+</div>
+
+<div class='overlay topright'>
+  <span><a href="https://github.com/josephg/boilerplate">github</a></span>
 </div>
 
 <div class="toolpanel">
