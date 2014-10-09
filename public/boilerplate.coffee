@@ -757,7 +757,6 @@ module.exports = class Boilerplate
     else if @imminent_select
       sa = sb = {tx:mtx, ty:mty}
 
-      return
     @ctx.lineWidth = 1
 
     # Draw the mouse hover state
