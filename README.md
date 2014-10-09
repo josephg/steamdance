@@ -16,8 +16,8 @@ its use:
 - Embedded boilerplate, for putting little bundles of puzzly love inline in a
   webpage.
 
-The boilerplate simulator is *not included*. That [lives in its own
-repository](/josephg/boilerplate-sim).
+The boilerplate simulator [lives in its own
+repository](https://github.com/josephg/boilerplate-sim). There's also a [boilerplate compiler](https://github.com/josephg/boilerplate-compiler) to take boilerplate programs and produce runnable javascript.
 
 
 ## Running the server
