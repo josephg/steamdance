@@ -17,19 +17,24 @@ compile = (grid) ->
     end: ->
 
   start = Date.now()
-  ast = compiler.compileGrid grid, {stream, module:'bare', debug:no, fillMode:'engines'}
+  # You can change fillMode to 'engines' to do dead code elimination. However,
+  # then a lot of the hover behaviour will stop working.
+  ast = compiler.compileGrid grid, {stream, module:'bare', debug:no, fillMode:'all', extraFns:yes}
 
   code = buffer.join ''
 
   #console.log 'code length', code.length
   #console.log code
   f = new Function(code)
-  {states, calcPressure, updateShuttles, getPressure} = f()
+  module = f()
+  #{states, calcPressure, updateShuttles, getPressure} = f()
 
   end = Date.now()
   console.log "Compiled to #{code.length} bytes of js in #{end - start} ms"
 
-  {states, calcPressure, updateShuttles, getPressure, ast, grid}
+  module.ast = ast
+  module.grid = grid
+  module
 
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
@@ -225,21 +230,23 @@ module.exports = class Boilerplate
     @compile yes
     @draw()
 
-  constructor: (@el, options) ->
+  resetView: (options) ->
     @zoomLevel = 1
     @zoomBy 0
+    # In tile coordinates
+    @scroll_x = options?.initialX || 0
+    @scroll_y = options?.initialY || 0
+
+  constructor: (@el, options) ->
 
     @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
     @lastKeyScroll = 0 # epoch time
 
     @activeTool = 'move'
 
-    @grid = options.grid
-    @compile yes
+    @setGrid options.grid
 
-    # In tile coordinates
-    @scroll_x = options.initialX || 0
-    @scroll_y = options.initialY || 0
+    @resetView options
 
     @canScroll = options.canScroll ? true
 
@@ -511,8 +518,8 @@ module.exports = class Boilerplate
   copySubgrid: (rect) ->
     {tx, ty, tw, th} = rect
     subgrid = {tw,th}
-    for y in [ty..ty+th]
-      for x in [tx..tx+tw]
+    for y in [ty...ty+th]
+      for x in [tx...tx+tw]
         if s = @compiled.grid[[x,y]]
           subgrid[[x-tx,y-ty]] = s
     subgrid
@@ -612,7 +619,7 @@ module.exports = class Boilerplate
 
     @drawGrid()
 
-    @drawEditControls()
+    @drawOverlay()
 
     @ctx.flush?()
 
@@ -694,8 +701,26 @@ module.exports = class Boilerplate
     # Return whether this shuttle needs to be redrawn again.
     return drawnAnything and moving
 
+  getRegionId: (k) ->
+    return unless @compiled
+
+    v = @compiled.grid[k]
+    return unless v
+
+    return if v is 'bridge'
+      [@compiled.ast.edgeGrid["#{k},true"], @compiled.ast.edgeGrid["#{k},false"]]
+    else if v
+      # We might be able to find the region if its in a shuttle zone based on
+      # the state of the shuttle.
+      if (sid = @compiled.ast.shuttleGrid[k])?
+        shuttle = @compiled.ast.shuttles[sid]
+        shuttle.adjacentTo[k]?[@states[sid]] ? shuttle.adjacentTo[k]?[@prevStates[sid]]
+      else
+        @compiled.ast.regionGrid[k]
 
   drawGrid: ->
+    needsRedraw = no
+
     t = if @animTime && @lastStepAt
       now = Date.now()
       exact = Math.min 1, (now - @lastStepAt) / @animTime
@@ -704,48 +729,85 @@ module.exports = class Boilerplate
     else
       1
 
+    # Mouse position.
+    mx = @mouse.x
+    my = @mouse.y
+    {tx:mtx, ty:mty} = @screenToWorld mx, my
+
+    if !@needsCompile and @activeTool is 'move' and !@selection and !@imminent_select
+      # Shade the thing the mouse is hovering over
+      k = "#{mtx},#{mty}"
+      rids = @getRegionId k
+      if Array.isArray rids # Its a bridge - we get 2 rids.
+        hoverZone = @compiled.getZone rids[0]
+        hoverZone2 = @compiled.getZone rids[1]
+      else
+        hoverZone = rids? && @compiled.getZone rids
+
+      # Only hover the shuttle grid if we're hovering on the shuttle itself.
+      hoverSid = if @draggedShuttle
+        @draggedShuttle.sid
+      else if @compiled.grid[k] in ['shuttle', 'thinshuttle']
+        @compiled.ast.shuttleGrid[k]
+
+    getShadeColor = (rid) =>
+      zone = @compiled.getZone rid
+      pressure = @compiled.getPressure rid
+
+      if zone >= 0 && zone in [hoverZone, hoverZone2]
+        return if pressure < 0 then 'hsla(16,68%,50%,0.8)' else if pressure > 0 then 'hsla(120,52%,58%,0.8)' else 'rgba(0,0,0,0.5)'
+
+      if pressure
+        return if pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
+
     # Draw the tiles
     #pressure = @simulator.getPressure()
     for k,v of @compiled.grid
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-        if !@needsCompile and v in ['shuttle', 'thinshuttle']
+        @ctx.fillStyle = if !@needsCompile and v in ['shuttle', 'thinshuttle']
           # Draw the blank (white) under the shuttle.
-          @ctx.fillStyle = Boilerplate.colors.nothing
+          Boilerplate.colors.nothing
         else
-          @ctx.fillStyle = Boilerplate.colors[v] || 'red'
+          # Normal case.
+          Boilerplate.colors[v] || 'red'
+
         @ctx.fillRect px, py, @size, @size
 
-        # Pressure!
-        pressure = if v is 'bridge'
-          top = @compiled.ast.edgeGrid["#{k},true"]
-          left = @compiled.ast.edgeGrid["#{k},false"]
-          @compiled.getPressure(top) + @compiled.getPressure(left)
+        continue unless @compiled
+
+        # Shading. We'll shade other cells that we're hovering over, or anything with pressure.
+        if v is 'bridge'
+          topColor = getShadeColor @compiled.ast.edgeGrid["#{k},true"]
+          b = (@size/4 + 1)|0
+          if topColor
+            @ctx.fillStyle = topColor
+            @ctx.fillRect px+b, py, @size-2*b, @size
+
+          leftColor = getShadeColor @compiled.ast.edgeGrid["#{k},false"]
+          if leftColor
+            @ctx.fillStyle = leftColor
+            @ctx.fillRect px, py+b, @size, @size-2*b
+
         else if v
-          # We might be able to find the region if its in a shuttle zone based
-          # on the state of the shuttle.
-          if (sid = @compiled.ast.shuttleGrid[k])?
-            shuttle = @compiled.ast.shuttles[sid]
-            rid = shuttle.adjacentTo[k]?[@states[sid]] ? shuttle.adjacentTo[k]?[@prevStates[sid]]
+          if hoverSid? and @compiled.ast.shuttleGrid[k] is hoverSid
+            @ctx.fillStyle = Boilerplate.colors.thinshuttle
+            @ctx.fillRect px, py, @size, @size
           else
-            rid = @compiled.ast.regionGrid[k]
+            rid = @getRegionId k
+            if rid? and (shadeColor = getShadeColor rid)
+              @ctx.fillStyle = shadeColor
+              @ctx.fillRect px, py, @size, @size
 
-          if rid? then @compiled.getPressure(rid) else 0
-
-        if pressure != 0
-          @ctx.fillStyle = if pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
-          @ctx.fillRect px, py, @size, @size
-
-    needsRedraw = 0
     if !@needsCompile
       for _,sid in @compiled.ast.shuttles
-        if @drawShuttle(t, sid) then needsRedraw = true
+        if @drawShuttle(t, sid) then needsRedraw = yes
 
     @draw() if t != 1 and needsRedraw
     return
 
-  drawEditControls: ->
+  drawOverlay: ->
     mx = @mouse.x
     my = @mouse.y
     {tx:mtx, ty:mty} = @screenToWorld mx, my
@@ -781,13 +843,14 @@ module.exports = class Boilerplate
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
         @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
         @ctx.globalAlpha = 1
-      else if mpx? and @activeTool != 'move'
-        # Mouse hover
-        @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
-        @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
+      else if mpx?
+        if @activeTool isnt 'move'
+          # Tool hover
+          @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
+          @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-        @ctx.strokeStyle = if @compiled.grid["#{mtx},#{mty}"] then 'black' else 'white'
-        @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
+          @ctx.strokeStyle = if @compiled.grid["#{mtx},#{mty}"] then 'black' else 'white'
+          @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
     return

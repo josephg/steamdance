@@ -51,6 +51,11 @@ a {
   right: 0;
 }
 
+.botright {
+  bottom: 0;
+  right: 0;
+}
+
 #worldlabel {
   color: hsl(42, 95%, 69%);
   margin: 0;
@@ -58,6 +63,20 @@ a {
   border: 0;
   font-size: 1em;
   background-color: transparent;
+}
+
+#panel span {
+  cursor: pointer;
+  color: hsl(42, 95%, 69%);
+  font-size: 1.5em;
+  margin: 7px;
+}
+
+#panel.stopped #playpause {
+  color: hsl(0, 0%, 78%);
+}
+#panel.running #step {
+  color: gray;
 }
 </style>
 <div id="bp" tabIndex=0 autofocus class="boilerplate"></div>
@@ -67,6 +86,13 @@ a {
 </div>
 
 <div class='overlay topright'>
+  <div id='panel'>
+    <span id="playpause" title="play pause (space bar)">&#9658;</span>
+    <span id="step" title="step (enter)">&#10168;</span>
+  </div>
+</div>
+
+<div class='overlay botright'>
   <span><a href="https://github.com/josephg/boilerplate">github</a></span>
 </div>
 

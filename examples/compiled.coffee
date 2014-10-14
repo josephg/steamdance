@@ -7,6 +7,8 @@ isEmpty = (obj) ->
 el = document.getElementById 'bp'
 
 worldLabel = document.getElementById 'worldlabel'
+playpausebutton = document.getElementById 'playpause'
+stepbutton = document.getElementById 'step'
 
 worldList = document.getElementById 'worldlist'
 do populate = ->
@@ -39,6 +41,13 @@ loadGrid = (name) ->
       console.log 'loaded', worldName if grid
   grid || {}
 
+running = true
+
+setRunning = (v) ->
+  running = v
+  document.getElementById('panel').className = if v then 'running' else 'stopped'
+
+setRunning true
 
 grid = loadGrid location.hash?[1..] || 'boilerplate'
 
@@ -50,6 +59,11 @@ bp.addKeyListener window
 
 bp.draw()
 
+reset = (grid) ->
+  bp.setGrid grid
+  bp.resetView()
+  setRunning true
+
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
   grid = bp.getGrid()
@@ -59,8 +73,16 @@ bp.onEditFinish = save = ->
     localStorage.setItem "world #{worldName}", JSON.stringify grid
 setInterval save, 5000
 
+window.addEventListener 'keypress', (e) ->
+  #console.log e.keyCode
+  switch e.keyCode
+    when 32 # space
+      setRunning !running
+    when 13 # enter
+      bp.step()
+
 setInterval =>
-  bp.step()
+  bp.step() if running
 , 200
 
 worldLabel.onkeydown = (e) ->
@@ -72,7 +94,7 @@ worldLabel.onchange = (e) ->
   worldLabel.blur()
 
 worldLabel.oninput = (e) ->
-  bp.setGrid loadGrid worldLabel.value
+  reset loadGrid worldLabel.value
 
 worldLabel.onkeydown = (e) ->
   e.cancelBubble = true
@@ -80,12 +102,16 @@ worldLabel.onkeydown = (e) ->
 window.onhashchange = ->
   hash = location.hash
   worldName = hash[1..] if hash
-  
-  bp.setGrid loadGrid worldName
+  reset loadGrid worldName
 
 window.onresize = ->
   console.log 'resize'
   bp.resizeTo window.innerWidth, window.innerHeight
+
+playpausebutton.onclick = (e) ->
+  setRunning !running
+stepbutton.onclick = (e) ->
+  bp.step()
 
 do ->
   panel = document.getElementsByClassName('toolpanel')[0]
