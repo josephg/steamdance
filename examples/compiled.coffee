@@ -41,10 +41,19 @@ loadGrid = (name) ->
       console.log 'loaded', worldName if grid
   grid || {}
 
-running = true
+running = false
 
+timer = null
 setRunning = (v) ->
+  return if running is v
   running = v
+  if v
+    timer = setInterval =>
+      bp.step()
+    , 200
+  else
+    clearInterval timer
+
   document.getElementById('panel').className = if v then 'running' else 'stopped'
 
 setRunning true
@@ -80,10 +89,6 @@ window.addEventListener 'keypress', (e) ->
       setRunning !running
     when 13 # enter
       bp.step()
-
-setInterval =>
-  bp.step() if running
-, 200
 
 worldLabel.onkeydown = (e) ->
   if e.keyCode is 27 # escape
