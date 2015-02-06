@@ -597,7 +597,7 @@ module.exports = class Boilerplate
 
       # This is a weird place to do keyboard scrolling, but if we do it in
       # step() it'll only happen once every few hundred ms.
-      if @keysPressed
+      if @keysPressed && @canScroll
         #console.log @keysPressed
         now = Date.now()
         amt = 0.5 * Math.min now - @lastKeyScroll, 300
