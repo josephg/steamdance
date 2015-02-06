@@ -1,4 +1,4 @@
-Boilerplate = require '../public/boilerplate.coffee'
+Boilerplate = require '../lib/boilerplate.coffee'
 
 isEmpty = (obj) ->
   return false for k of obj
