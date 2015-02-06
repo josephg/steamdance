@@ -527,7 +527,7 @@ module.exports = class Boilerplate
   flip: (dir) ->
     return unless @selection
     new_selection = {tw:tw = @selection.tw, th:th = @selection.th}
-    for k,v of @selection
+    for k,v of @selection when k not in ['tw', 'th']
       {x:tx,y:ty} = parseXY k
       tx_ = if 'x' in dir then tw-1 - tx else tx
       ty_ = if 'y' in dir then th-1 - ty else ty
