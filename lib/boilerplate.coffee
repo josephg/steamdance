@@ -537,7 +537,7 @@ module.exports = class Boilerplate
   mirror: ->
     return unless @selection
     new_selection = {tw:tw = @selection.th, th:th = @selection.tw}
-    for k,v of @selection
+    for k,v of @selection when k not in ['tw', 'th']
       {x:tx,y:ty} = parseXY k
       new_selection[[ty,tx]] = v
     @selection = new_selection
