@@ -270,7 +270,7 @@ module.exports = class Boilerplate
 
     #@canvas.width = el.offsetWidth
     #@canvas.height = el.offsetHeight
-    @resizeTo el.offsetWidth, el.offsetHeight
+    @resizeTo @el.offsetWidth, @el.offsetHeight
 
 
     #@el.onresize = -> console.log 'yo'
