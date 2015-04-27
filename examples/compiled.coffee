@@ -69,13 +69,13 @@ bp.addKeyListener window
 bp.draw()
 
 reset = (grid) ->
-  bp.setGrid grid
+  bp.setJSONGrid grid
   bp.resetView()
   setRunning true
 
 bp.onEditFinish = save = ->
   #console.log 'saving', worldName
-  grid = bp.getGrid()
+  grid = bp.getJSONGrid()
   if isEmpty grid
     localStorage.removeItem "world #{worldName}"
   else
@@ -110,7 +110,6 @@ window.onhashchange = ->
   reset loadGrid worldName
 
 window.onresize = ->
-  console.log 'resize'
   bp.resizeTo window.innerWidth, window.innerHeight
 
 playpausebutton.onclick = (e) ->

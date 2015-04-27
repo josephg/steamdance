@@ -1,40 +1,13 @@
-compiler = require 'boilerplate-compiler'
-{parseXY, moveShuttle} = compiler.util
-
+{Jit, Map2, util} = require 'boilerplate-jit'
 {WebGLContext} = require './gl'
+
+UP=0; RIGHT=1; DOWN=2; LEFT=3
 
 KEY =
   up: 1
   right: 2
   down: 4
   left: 8
-
-compile = (grid) ->
-  buffer = []
-  # I could use a real stream here, but then my test would be asyncronous.
-  stream =
-    write: (str) -> buffer.push str
-    end: ->
-
-  start = Date.now()
-  # You can change fillMode to 'engines' to do dead code elimination. However,
-  # then a lot of the hover behaviour will stop working.
-  ast = compiler.compileGrid grid, {stream, module:'bare', debug:no, fillMode:'all', extraFns:yes}
-
-  code = buffer.join ''
-
-  #console.log 'code length', code.length
-  #console.log code
-  f = new Function(code)
-  module = f()
-  #{states, calcPressure, updateShuttles, getPressure} = f()
-
-  end = Date.now()
-  console.log "Compiled to #{code.length} bytes of js in #{end - start} ms"
-
-  module.ast = ast
-  module.grid = grid
-  module
 
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
@@ -142,7 +115,7 @@ module.exports = class Boilerplate
           @keysPressed |= KEY.down
 
         when 16 # shift
-          @imminent_select = true
+          @imminentSelect = true
         when 27,192 # esc
           if @selection
             @selection = @selectOffset = null
@@ -164,7 +137,7 @@ module.exports = class Boilerplate
 
       switch e.keyCode
         when 16 # shift
-          @imminent_select = false
+          @imminentSelect = false
           @draw()
 
         when 37 # left
@@ -179,7 +152,7 @@ module.exports = class Boilerplate
 
     el.addEventListener 'blur', =>
       @mouse.mode = null
-      @imminent_select = false
+      @imminentSelect = false
       @draw()
 
     el.addEventListener 'copy', (e) => @copy(e)
@@ -193,58 +166,79 @@ module.exports = class Boilerplate
   screenToWorld: (px, py) ->
     return {tx:null, ty:null} unless px?
     # first, the top-left pixel of the screen is at |_ scroll * size _| px from origin
-    px += Math.floor(@scroll_x * @size)
-    py += Math.floor(@scroll_y * @size)
+    px += Math.floor(@scrollX * @size)
+    py += Math.floor(@scrollY * @size)
     # now we can simply divide and floor to find the tile
     tx = Math.floor(px / @size)
     ty = Math.floor(py / @size)
     {tx,ty}
 
+  # Same as screenToWorld, but also returns which cell in the result.
+  screenToWorldCell: (px, py) ->
+    return {tx:null, ty:null} unless px?
+    # This logic is adapted from screenToWorld above.
+    px += Math.floor(@scrollX * @size)
+    py += Math.floor(@scrollY * @size)
+    tx_ = px / @size; ty_ = py / @size
+    tx = Math.floor(tx_); ty = Math.floor(ty_)
+
+    # There's no cell for solid (null) cells.
+    v = @parsed.grid.get tx, ty
+    return {tx, ty, cell:null} unless v
+
+    offX = tx_ - tx; offY = ty_ - ty
+
+    upRight = offX > offY
+    downRight = offX + offY > 1
+    tc = switch v
+      when 'bridge'
+        # The only cells are UP and RIGHT.
+        if upRight != downRight then UP else RIGHT
+      when 'negative', 'positive'
+        if upRight
+          if downRight then RIGHT else UP
+        else
+          if downRight then DOWN else LEFT
+      else
+        0
+
+    return {tx, ty, tc}
+
   # given tile x,y returns the pixel x,y,w,h at which the tile resides on the screen.
   worldToScreen: (tx, ty) ->
     return {px:null, py:null} unless tx?
-    px: tx * @size - Math.floor(@scroll_x * @size)
-    py: ty * @size - Math.floor(@scroll_y * @size)
+    px: tx * @size - Math.floor(@scrollX * @size)
+    py: ty * @size - Math.floor(@scrollY * @size)
 
   zoomBy: (diff) ->
     @zoomLevel += diff
     @zoomLevel = clamp @zoomLevel, 1/20, 5
     @size = Math.floor 20 * @zoomLevel
 
-  ###
-  get: (tx, ty) ->
-    k = "#{tx},#{ty}"
-    sid = @compiled.ast.shuttleGrid[k]
-    if sid?
-      state = @compiled.states[sid]
-      shuttle = @compiled.ast.shuttles[sid]
-      {dx,dy} = shuttle.states[state]
-      return shuttle.points["#{tx-dx},#{ty-dy}"] || 'nothing'
+  set: (x, y, v) ->
+    if @parsed.grid.set x, y, v
+      @onEdit? x, y, v
+      return yes
     else
-      @compiled.grid[k]
-  ###
-
-  getGrid: -> @compiled.grid
-  setGrid: (grid) ->
-    @grid = grid
-    @compile yes
-    @draw()
+      return no
 
   resetView: (options) ->
     @zoomLevel = 1
     @zoomBy 0
     # In tile coordinates
-    @scroll_x = options?.initialX || 0
-    @scroll_y = options?.initialY || 0
+    @scrollX = options?.initialX || 0
+    @scrollY = options?.initialY || 0
+
+  setJSONGrid: (json) -> @parsed = Jit json
+  getJSONGrid: -> @parsed.grid.toJSON()
 
   constructor: (@el, options) ->
-
     @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
     @lastKeyScroll = 0 # epoch time
 
     @activeTool = 'move'
 
-    @setGrid options.grid
+    @setJSONGrid options.grid
 
     @resetView options
 
@@ -277,7 +271,7 @@ module.exports = class Boilerplate
 
     @mouse = {x:null,y:null, mode:null}
     #@placing = 'nothing'
-    @imminent_select = false
+    @imminentSelect = false
     @selectedA = @selectedB = null
     @selectOffset = null
     @selection = null
@@ -288,7 +282,7 @@ module.exports = class Boilerplate
     # ----- Event handlers
 
     @el.onmousemove = (e) =>
-      @imminent_select = !!e.shiftKey
+      @imminentSelect = !!e.shiftKey
       # If the mouse is released / pressed while not in the box, handle that correctly
 
       @el.onmousedown e if e.button && !@mouse.mode
@@ -296,9 +290,9 @@ module.exports = class Boilerplate
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
       @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
-      {tx, ty} = @screenToWorld @mouse.x, @mouse.y
+      {tx, ty, tc} = @screenToWorldCell @mouse.x, @mouse.y
 
-      if tx != @mouse.tx || ty != @mouse.ty
+      if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
         if @mouse.mode is 'paint' and e.shiftKey
           switch @mouse.direction
             when 'x' then {ty} = @mouse
@@ -306,13 +300,13 @@ module.exports = class Boilerplate
             when null
               @mouse.direction = if tx != @mouse.tx then 'x' else 'y'
 
-        @mouse.tx = tx; @mouse.ty = ty
+        @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
 
         switch @mouse.mode
           when 'paint' then @paint()
           when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
 
-        @dragShuttleTo tx, ty
+        @dragShuttleTo tx, ty if @draggedShuttle?
 
         @updateCursor()
         @draw()
@@ -327,10 +321,12 @@ module.exports = class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          v = @compiled.grid["#{@mouse.tx},#{@mouse.ty}"]
+          v = @parsed.grid.get @mouse.tx, @mouse.ty
           if v in ['shuttle', 'thinshuttle']
             # find the shuttle id for the shuttle under the cursor
-            @compile() if @needsCompile
+            #@compile() if @needsCompile
+
+            throw Error 'blerk not ported'
             sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
             shuttle = @compiled.ast.shuttles[sid]
             if !shuttle.immobile
@@ -351,7 +347,7 @@ module.exports = class Boilerplate
     @el.onmouseup = =>
       @draggedShuttle = null
       
-      @compile() if @needsCompile
+      #@compile() if @needsCompile
 
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
@@ -361,7 +357,7 @@ module.exports = class Boilerplate
 
       @mouse.mode = null
       @mouse.direction = null
-      @imminent_select = false
+      @imminentSelect = false
       @updateCursor()
       @draw()
       @onEditFinish?()
@@ -386,11 +382,11 @@ module.exports = class Boilerplate
         oldsize = @size
         @zoomBy -e.deltaY / 400
 
-        @scroll_x += @mouse.x / oldsize - @mouse.x / @size
-        @scroll_y += @mouse.y / oldsize - @mouse.y / @size
+        @scrollX += @mouse.x / oldsize - @mouse.x / @size
+        @scrollY += @mouse.y / oldsize - @mouse.y / @size
       else
-        @scroll_x += e.deltaX / @size
-        @scroll_y += e.deltaY / @size
+        @scrollX += e.deltaX / @size
+        @scrollY += e.deltaY / @size
       {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       e.preventDefault()
       @updateCursor()
@@ -398,10 +394,10 @@ module.exports = class Boilerplate
 
   updateCursor: ->
     @canvas.style.cursor =
-      if @activeTool is 'move' and !@imminent_select
+      if @activeTool is 'move' and !@imminentSelect
         if @draggedShuttle?
           '-webkit-grabbing'
-        else if @compiled.grid["#{@mouse.tx},#{@mouse.ty}"] in ['shuttle', 'thinshuttle']
+        else if @parsed.grid.get(@mouse.tx, @mouse.ty) in ['shuttle', 'thinshuttle']
           '-webkit-grab'
         else
           'default'
@@ -440,17 +436,13 @@ module.exports = class Boilerplate
 
     line fromtx, fromty, tx, ty, (x, y) =>
       #@simulator.set x, y, @activeTool
-      if @activeTool?
-        @compiled.grid[[x,y]] = @activeTool
-      else
-        delete @compiled.grid[[x,y]]
-      @onEdit? x, y, @activeTool
-    @gridChanged()
+      # @activeTool is null for solid.
+      @set x, y, @activeTool
+    @draw()
 
   compile: (force) ->
-    return if !force && !@needsCompile
-    @needsCompile = no
-    @compiled = compile @grid
+    throw new Error 'crap'
+    @parsed = Jit @grid
 
     for s in @compiled.ast.shuttles
       s.edges = {}
@@ -467,18 +459,15 @@ module.exports = class Boilerplate
         e = e|8 if !s.points["#{x-1},#{y}"]
         s.edges[k] = e
 
-    @compiled.calcPressure()
-    @prevStates = new @compiled.states.constructor @compiled.states
-    @states = @compiled.states
-    @draw()
-
-  gridChanged: ->
-    @needsCompile = true
+    #@compiled.calcPressure()
+    #@prevStates = new @compiled.states.constructor @compiled.states
+    #@states = @compiled.states
     @draw()
 
   step: ->
+    return
+
     #@compile() if @needsCompile
-    return if @needsCompile
 
     anythingChanged = no
 
@@ -503,12 +492,12 @@ module.exports = class Boilerplate
       @updateCursor()
 
   moveShuttle: (sid, from, to) ->
+    throw Error 'blerk'
     moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
 
   dragShuttleTo: (tx, ty) ->
+    throw Error 'blerk'
     return unless @draggedShuttle?
-
-    return if @needsCompile
 
     {sid, heldPoint} = @draggedShuttle
     shuttle = @compiled.ast.shuttles[sid]
@@ -532,30 +521,33 @@ module.exports = class Boilerplate
   #########################
   copySubgrid: (rect) ->
     {tx, ty, tw, th} = rect
-    subgrid = {tw,th}
+    subgrid = new Map2
+    subgrid.tw = tw; subgrid.th = th
+
     for y in [ty...ty+th]
       for x in [tx...tx+tw]
-        if s = @compiled.grid[[x,y]]
-          subgrid[[x-tx,y-ty]] = s
+        if v = @parsed.grid.get x, y
+          subgrid.set x-tx, y-ty, v
     subgrid
 
   flip: (dir) ->
     return unless @selection
-    new_selection = {tw:tw = @selection.tw, th:th = @selection.th}
-    for k,v of @selection when k not in ['tw', 'th']
-      {x:tx,y:ty} = parseXY k
+    newSelection = new Map2
+    tw = newSelection.tw = @selection.tw; th = newSelection.th = @selection.th
+
+    @selection.forEach (x, y, v) ->
       tx_ = if 'x' in dir then tw-1 - tx else tx
       ty_ = if 'y' in dir then th-1 - ty else ty
-      new_selection[[tx_,ty_]] = v
-    @selection = new_selection
+      newSelection.set tx_, ty_, v
+    @selection = newSelection
 
   mirror: ->
     return unless @selection
-    new_selection = {tw:tw = @selection.th, th:th = @selection.tw}
-    for k,v of @selection when k not in ['tw', 'th']
-      {x:tx,y:ty} = parseXY k
-      new_selection[[ty,tx]] = v
-    @selection = new_selection
+    newSelection = new Map2
+    tw = newSelection.tw = @selection.tw; th = newSelection.th = @selection.th
+
+    @selection.forEach (x, y, v) -> newSelection.set ty, tx, v
+    @selection = newSelection
 
   stamp: ->
     throw new Error 'tried to stamp without a selection' unless @selection
@@ -564,25 +556,18 @@ module.exports = class Boilerplate
     mty -= @selectOffset.ty
 
     changed = no
-    for y in [0...@selection.th]
-      for x in [0...@selection.tw]
-        tx = mtx+x
-        ty = mty+y
-        if (s = @selection[[x,y]]) != @compiled.grid[[tx,ty]]
-          changed = yes
-          if s?
-            @compiled.grid[[tx,ty]] = s
-          else
-            delete @compiled.grid[[tx,ty]]
-          @onEdit? tx, ty, s
-    @gridChanged() if changed
+    @selection.forEach (x, y, v) =>
+      changed = true if @set mtx+x, mty+y, v
+    @draw() if changed
 
   copy: (e) ->
     #console.log 'copy'
     if @selection
-      e.clipboardData.setData 'text', JSON.stringify @selection
+      json = {tx:@selection.tx, ty:@selection.ty}
+      @selection.forEach (x, y, v) -> json["#{x},#{y}"] = v if v?
+      e.clipboardData.setData 'text', JSON.stringify json
 
-      console.log JSON.stringify @selection
+      console.log JSON.stringify json
     e.preventDefault()
 
   paste: (e) ->
@@ -590,12 +575,14 @@ module.exports = class Boilerplate
     data = e.clipboardData.getData 'text'
     if data
       try
-        @selection = JSON.parse data
+        json = JSON.parse data
+        @selection = new Map2
         tw = th = 0
-        for k, v of @selection
-          {x,y} = parseXY k
+        for k, v of json when k not in ['tw', 'th']
+          {x,y} = util.parseXY k
           tw = x+1 if x >= tw
           th = y+1 if y >= th
+          @selection.set x, y, v
         @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
 
@@ -617,10 +604,10 @@ module.exports = class Boilerplate
         now = Date.now()
         amt = 0.5 * Math.min now - @lastKeyScroll, 300
 
-        @scroll_y -= amt/@size if @keysPressed & KEY.up
-        @scroll_x += amt/@size if @keysPressed & KEY.right
-        @scroll_y += amt/@size if @keysPressed & KEY.down
-        @scroll_x -= amt/@size if @keysPressed & KEY.left
+        @scrollY -= amt/@size if @keysPressed & KEY.up
+        @scrollX += amt/@size if @keysPressed & KEY.right
+        @scrollY += amt/@size if @keysPressed & KEY.down
+        @scrollX -= amt/@size if @keysPressed & KEY.left
 
         @lastKeyScroll = now
 
@@ -638,8 +625,7 @@ module.exports = class Boilerplate
 
     @ctx.flush?()
 
-
-  drawShuttle: (t, sid) ->
+  drawShuttleOLD: (t, sid) ->
     shuttle = @compiled.ast.shuttles[sid]
 
     drawnAnything = no
@@ -733,7 +719,71 @@ module.exports = class Boilerplate
       else
         @compiled.ast.regionGrid[k]
 
+  drawPoints: (points, override) ->
+    points.forEach (tx, ty, v) =>
+      {px, py} = @worldToScreen tx, ty
+      return unless px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+      @ctx.fillStyle = if typeof override is 'function'
+        override tx, ty, v
+      else if override
+        override
+      else
+        Boilerplate.colors[v] || 'red'
+
+      @ctx.fillRect px, py, @size, @size
+
+
+
   drawGrid: ->
+    # Will we need to redraw again soon?
+    needsRedraw = no
+
+    # For animating shuttle motion
+    t = if @animTime && @lastStepAt
+      now = Date.now()
+      exact = Math.min 1, (now - @lastStepAt) / @animTime
+
+      ((exact * @size)|0) / @size
+    else
+      1
+
+    # Mouse position
+    mx = @mouse.x; my = @mouse.y
+    {tx:mtx, ty:mty, tc:mtc} = @screenToWorldCell mx, my
+
+    hover = hoverType = null
+    if @activeTool is 'move' and !@selection and !@imminentSelect
+      v = @parsed.grid.get mtx, mty
+      # What is the mouse hovering over? A shuttle?
+      if hover = @parsed.shuttles.get mtx, mty
+        hoverType = 'shuttle'
+      else if v and hover = @parsed.groups.get mtx, mty, mtc
+        hoverType = 'group'
+
+    #console.log hover if hover
+
+    # Draw the grid
+    @drawPoints @parsed.grid, (tx, ty, v) ->
+      if v in ['shuttle', 'thinshuttle']
+        # Draw the blank (white) under the shuttle.
+        Boilerplate.colors.nothing
+      else
+        # Normal case.
+        Boilerplate.colors[v] || 'red'
+
+    @parsed.shuttles.forEach (shuttle) =>
+      @drawPoints shuttle.points, (tx, ty, v) ->
+        if hover is shuttle then 'darkred' else Boilerplate.colors[v]
+
+    if hoverType is 'group'
+      group = hover
+      @drawPoints hover.points, 'grey'
+
+    @draw() if t != 1 and needsRedraw
+    return
+
+  drawGridOLD: ->
+    # Will we need to redraw again soon?
     needsRedraw = no
 
     t = if @animTime && @lastStepAt
@@ -749,7 +799,7 @@ module.exports = class Boilerplate
     my = @mouse.y
     {tx:mtx, ty:mty} = @screenToWorld mx, my
 
-    if !@needsCompile and @activeTool is 'move' and !@selection and !@imminent_select
+    if @activeTool is 'move' and !@selection and !@imminentSelect
       # Shade the thing the mouse is hovering over
       k = "#{mtx},#{mty}"
       rids = @getRegionId k
@@ -764,7 +814,7 @@ module.exports = class Boilerplate
         @draggedShuttle.sid
       else if @compiled.grid[k] in ['shuttle', 'thinshuttle']
         @compiled.ast.shuttleGrid[k]
-
+    
     getShadeColor = (rid) =>
       zone = @compiled.getZone rid
       pressure = @compiled.getPressure rid
@@ -781,7 +831,7 @@ module.exports = class Boilerplate
       {x:tx,y:ty} = parseXY k
       {px, py} = @worldToScreen tx, ty
       if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-        @ctx.fillStyle = if !@needsCompile and v in ['shuttle', 'thinshuttle']
+        @ctx.fillStyle = if v in ['shuttle', 'thinshuttle']
           # Draw the blank (white) under the shuttle.
           Boilerplate.colors.nothing
         else
@@ -815,9 +865,8 @@ module.exports = class Boilerplate
               @ctx.fillStyle = shadeColor
               @ctx.fillRect px, py, @size, @size
 
-    if !@needsCompile
-      for _,sid in @compiled.ast.shuttles
-        if @drawShuttle(t, sid) then needsRedraw = yes
+    for _,sid in @compiled.ast.shuttles
+      if @drawShuttle(t, sid) then needsRedraw = yes
 
     @draw() if t != 1 and needsRedraw
     return
@@ -831,7 +880,7 @@ module.exports = class Boilerplate
     if @mouse.mode is 'select'
       sa = @selectedA
       sb = @selectedB
-    else if @imminent_select
+    else if @imminentSelect
       sa = sb = {tx:mtx, ty:mty}
 
     @ctx.lineWidth = 1
@@ -852,7 +901,7 @@ module.exports = class Boilerplate
           for x in [0...@selection.tw]
             {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
             if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-              v = @selection[[x,y]]
+              v = @selection.get x, y
               @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
               @ctx.fillRect px, py, @size, @size
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
@@ -864,7 +913,7 @@ module.exports = class Boilerplate
           @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
           @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-          @ctx.strokeStyle = if @compiled.grid["#{mtx},#{mty}"] then 'black' else 'white'
+          @ctx.strokeStyle = if @parsed.grid.get(mtx, mty) then 'black' else 'white'
           @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
