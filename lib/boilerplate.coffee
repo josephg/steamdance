@@ -299,6 +299,13 @@ module.exports = class Boilerplate
       {tx, ty} = @screenToWorld @mouse.x, @mouse.y
 
       if tx != @mouse.tx || ty != @mouse.ty
+        if @mouse.mode is 'paint' and e.shiftKey
+          switch @mouse.direction
+            when 'x' then {ty} = @mouse
+            when 'y' then {tx} = @mouse
+            when null
+              @mouse.direction = if tx != @mouse.tx then 'x' else 'y'
+
         @mouse.tx = tx; @mouse.ty = ty
 
         switch @mouse.mode
@@ -336,6 +343,7 @@ module.exports = class Boilerplate
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
+          @mouse.direction = null
           @paint()
       @updateCursor()
       @draw()
@@ -352,6 +360,7 @@ module.exports = class Boilerplate
           ty:@selectedB.ty - Math.min @selectedA.ty, @selectedB.ty
 
       @mouse.mode = null
+      @mouse.direction = null
       @imminent_select = false
       @updateCursor()
       @draw()
@@ -397,7 +406,13 @@ module.exports = class Boilerplate
         else
           'default'
       else
-        'crosshair'
+        switch @mouse.direction
+          when 'x'
+            'ew-resize'
+          when 'y'
+            'ns-resize'
+          else
+            'crosshair'
 
   resizeTo: (width, height) ->
     #console.log "resized to #{width}x#{height}"
