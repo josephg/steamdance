@@ -1,4 +1,4 @@
-{Jit, Map2, Map3, Set2, Set3, util} = require 'boilerplate-jit'
+{Jit, Map2, Map3, Set2, Set3, util, Watcher} = require 'boilerplate-jit'
 {WebGLContext} = require './gl'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
@@ -9,6 +9,61 @@ KEY =
   right: 2
   down: 4
   left: 8
+
+
+# We have some additional modules to chain to the jit.
+
+BlobBounds = (blobFiller) ->
+  # This calculates the bounds of all shuttles and engines.
+ 
+  blobFiller.addWatch.on (blob) ->
+    # I'm lazy. I'll just dump it on the blob itself.
+    left = top = 1<<30
+    right = bottom = -1<<30
+
+    {points, edges} = blob
+    (if points.size < edges.size then points else edges).forEach (x, y) ->
+      left = x if x < left
+      top = y if y < top
+      right = x if x > right
+      bottom = y if y > bottom
+
+    blob.bounds = {left, top, right, bottom}
+
+
+PrevState = (stepWatch, shuttles, currentStates) ->
+  # Here we store enough information to know what the state of every shuttle
+  # was before the most recent call to step().
+
+  # I'd use a WeakMap here but apparently in chrome weakmaps don't support .clear().
+  prevState = new Map
+
+  shuttles.deleteWatch.on (shuttle) -> prevState.delete shuttle
+
+  currentStates.watch.on (shuttle, prev) ->
+    return unless prev # This will fire when the shuttle is first created.
+    prevState.set shuttle, prev
+    console.log 'ps', prev
+
+  stepWatch.on (time) ->
+    return unless time is 'before'
+    prevState.clear()
+  
+  get: (shuttle) -> prevState.get shuttle
+
+addModules = (jit) ->
+  {stepWatch, shuttles, engines, currentStates} = jit.modules
+
+  BlobBounds shuttles
+  BlobBounds engines
+
+  prevState = PrevState stepWatch, shuttles, currentStates
+
+
+  jit.modules.prevState = prevState
+  
+
+
 
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
@@ -230,7 +285,9 @@ module.exports = class Boilerplate
     @scrollX = options?.initialX || 0
     @scrollY = options?.initialY || 0
 
-  setJSONGrid: (json) -> @parsed = Jit json
+  setJSONGrid: (json) ->
+    @parsed = Jit json
+    addModules @parsed
   getJSONGrid: -> @parsed.toJSON()
 
   constructor: (@el, options) ->
@@ -441,32 +498,9 @@ module.exports = class Boilerplate
       @set x, y, @activeTool
     @draw()
 
-  compile: (force) ->
-    throw new Error 'crap'
-    @parsed = Jit @grid
-
-    for s in @compiled.ast.shuttles
-      s.edges = {}
-      for k,v of s.points
-        {x, y} = parseXY k
-        e = 0
-        # top
-        e = e|1 if !s.points["#{x},#{y-1}"]
-        # right
-        e = e|2 if !s.points["#{x+1},#{y}"]
-        # bot
-        e = e|4 if !s.points["#{x},#{y+1}"]
-        # left
-        e = e|8 if !s.points["#{x-1},#{y}"]
-        s.edges[k] = e
-
-    #@compiled.calcPressure()
-    #@prevStates = new @compiled.states.constructor @compiled.states
-    #@states = @compiled.states
-    @draw()
-
   step: ->
     @parsed.step()
+    @lastStepAt = Date.now()
     @draw()
     return
 
@@ -486,8 +520,6 @@ module.exports = class Boilerplate
       if @prevStates[sid] != v
         anythingChanged = yes
         @moveShuttle sid, @prevStates[sid], v
-
-    @lastStepAt = Date.now()
 
     if anythingChanged
       @compiled.calcPressure()
@@ -631,23 +663,6 @@ module.exports = class Boilerplate
 
     @ctx.flush?()
 
-  getRegionId: (k) ->
-    return unless @compiled
-
-    v = @compiled.grid[k]
-    return unless v
-
-    return if v is 'bridge'
-      [@compiled.ast.edgeGrid["#{k},true"], @compiled.ast.edgeGrid["#{k},false"]]
-    else if v
-      # We might be able to find the region if its in a shuttle zone based on
-      # the state of the shuttle.
-      if (sid = @compiled.ast.shuttleGrid[k])?
-        shuttle = @compiled.ast.shuttles[sid]
-        shuttle.adjacentTo[k]?[@states[sid]] ? shuttle.adjacentTo[k]?[@prevStates[sid]]
-      else
-        @compiled.ast.regionGrid[k]
-
   drawCells: (points, offset, override) ->
     # Helper to draw blocky cells
     if typeof offset is 'function'
@@ -666,30 +681,18 @@ module.exports = class Boilerplate
 
       @ctx.fillRect px, py, @size, @size
 
-  getShuttleBounds: (shuttle) ->
-    if !shuttle.bounds
-      left = top = 1<<30
-      right = bottom = -1<<30
-
-      {points, edges} = shuttle
-      (if points.size < edges.size then points else edges).forEach (x, y) ->
-        left = x if x < left
-        top = y if y < top
-        right = x if x > right
-        bottom = y if y > bottom
-
-      shuttle.bounds = {left, top, right, bottom}
-
-    return shuttle.bounds
-
-
-  drawShuttle: (shuttle) ->
+  drawShuttle: (shuttle, t) ->
     # First get bounds - we might not even be able to display the shuttle.
-    bounds = @getShuttleBounds shuttle
-    {dx:sx, dy:sy} = shuttle.currentState
+    if (prevState = @parsed.modules.prevState.get shuttle)
+      sx = lerp t, prevState.dx, shuttle.currentState.dx
+      sy = lerp t, prevState.dy, shuttle.currentState.dy
+    else
+      {dx:sx, dy:sy} = shuttle.currentState
+
+    bounds = shuttle.bounds
     topLeft = @worldToScreen bounds.left+sx, bounds.top+sy
     botRight = @worldToScreen bounds.right+sx+1, bounds.bottom+sy+1
-    return if topLeft.px > @canvas.width or
+    return no if topLeft.px > @canvas.width or
       topLeft.py > @canvas.height or
       botRight.px < 0 or
       botRight.py < 0
@@ -782,6 +785,8 @@ module.exports = class Boilerplate
     @ctx.stroke()
     #@ctx.fill()
     ###
+    
+    return yes
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -816,7 +821,7 @@ module.exports = class Boilerplate
     @drawCells @parsed.grid, (tx, ty, v) -> Boilerplate.colors[v] || 'red'
 
     @parsed.shuttles.forEach (shuttle) =>
-      @drawShuttle shuttle
+      needsRedraw = true if @drawShuttle shuttle, t
       #@drawCells shuttle.points, @parsed.getShuttlePos(shuttle), (tx, ty, v) ->
       #  if hover is shuttle then 'darkred' else Boilerplate.colors[v]
 
