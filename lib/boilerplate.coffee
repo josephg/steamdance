@@ -1,7 +1,8 @@
-{Jit, Map2, util} = require 'boilerplate-jit'
+{Jit, Map2, Map3, Set2, Set3, util} = require 'boilerplate-jit'
 {WebGLContext} = require './gl'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
+{DIRS} = util
 
 KEY =
   up: 1
@@ -216,7 +217,7 @@ module.exports = class Boilerplate
     @size = Math.floor 20 * @zoomLevel
 
   set: (x, y, v) ->
-    if @parsed.grid.set x, y, v
+    if @parsed.set x, y, v
       @onEdit? x, y, v
       return yes
     else
@@ -230,7 +231,7 @@ module.exports = class Boilerplate
     @scrollY = options?.initialY || 0
 
   setJSONGrid: (json) -> @parsed = Jit json
-  getJSONGrid: -> @parsed.grid.toJSON()
+  getJSONGrid: -> @parsed.toJSON()
 
   constructor: (@el, options) ->
     @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
@@ -465,6 +466,8 @@ module.exports = class Boilerplate
     @draw()
 
   step: ->
+    @parsed.step()
+    @draw()
     return
 
     #@compile() if @needsCompile
@@ -536,9 +539,9 @@ module.exports = class Boilerplate
     tw = newSelection.tw = @selection.tw; th = newSelection.th = @selection.th
 
     @selection.forEach (x, y, v) ->
-      tx_ = if 'x' in dir then tw-1 - tx else tx
-      ty_ = if 'y' in dir then th-1 - ty else ty
-      newSelection.set tx_, ty_, v
+      x_ = if dir is 'x' then tw-1 - x else x
+      y_ = if dir is 'y' then th-1 - y else y
+      newSelection.set x_, y_, v
     @selection = newSelection
 
   mirror: ->
@@ -556,8 +559,11 @@ module.exports = class Boilerplate
     mty -= @selectOffset.ty
 
     changed = no
-    @selection.forEach (x, y, v) =>
-      changed = true if @set mtx+x, mty+y, v
+    # We need to set all values, even the nulls.
+    for y in [0...@selection.th]
+      for x in [0...@selection.tw]
+        changed = true if @set mtx+x, mty+y, @selection.get x, y
+
     @draw() if changed
 
   copy: (e) ->
@@ -625,83 +631,6 @@ module.exports = class Boilerplate
 
     @ctx.flush?()
 
-  drawShuttleOLD: (t, sid) ->
-    shuttle = @compiled.ast.shuttles[sid]
-
-    drawnAnything = no
-    moving = no
-
-    if !shuttle.immobile
-      stateid = @states[sid]
-      state = shuttle.states[stateid]
-      dx = state.dx; dy = state.dy
-
-      if t < 1
-        prevstateid = @prevStates[sid]
-        prevstate = shuttle.states[prevstateid]
-
-        if stateid != prevstateid
-          moving = yes
-
-          if dx != prevstate.dx
-            dx = lerp t, prevstate.dx, dx
-          else if dy != prevstate.dy
-            dy = lerp t, prevstate.dy, dy
-
-    else
-      dx = dy = 0
-      t = 1
-
-    for k,v of shuttle.points
-      {x,y} = parseXY k
-      {px, py} = @worldToScreen x+dx, y+dy
-
-      if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-        drawnAnything = yes
-
-        @ctx.fillStyle = Boilerplate.colors[v]
-        #@ctx.fillStyle = Boilerplate.colors.shuttle
- 
-        px2 = px; py2 = py; sizex = sizey = @size
-
-        e = shuttle.edges[k]
-        if e
-          b = if v is 'shuttle'
-            @size * 0.04
-          else
-            #e = ~e
-            @size * 0.25
-          b = (b+1)|0
-          # top, right, bottom, left
-          if e & 1 then py2 += b; sizey -= b
-          if e & 2 then sizex -= b
-          if e & 4 then sizey -= b
-          if e & 8 then px2 += b; sizex -= b
-        @ctx.fillRect px2, py2, sizex, sizey
-
-        # Fill back in inner corners
-        @ctx.fillStyle = Boilerplate.colors.nothing
-        if (e & 0x9) == 0 && !shuttle.points["#{x-1},#{y-1}"] # top left
-          @ctx.fillRect px, py, b, b
-        if (e & 0x3) == 0 && !shuttle.points["#{x+1},#{y-1}"] # top right
-          @ctx.fillRect px + @size - b, py, b, b
-        if (e & 0x6) == 0 && !shuttle.points["#{x+1},#{y+1}"] # bot right
-          @ctx.fillRect px + @size - b, py + @size - b, b, b
-        if (e & 0xc) == 0 && !shuttle.points["#{x-1},#{y+1}"] # bot left
-          @ctx.fillRect px, py + @size - b, b, b
-        
-        if v is 'thinshuttle'
-          k2 = if state then "#{x+state.dx},#{y+state.dy}" else k
-          rid = shuttle.adjacentTo[k2]?[stateid || 0]
-          if rid?
-            p = @compiled.getPressure(rid)
-            if p != 0
-              @ctx.fillStyle = if p < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
-              @ctx.fillRect px, py, @size, @size
-
-    # Return whether this shuttle needs to be redrawn again.
-    return drawnAnything and moving
-
   getRegionId: (k) ->
     return unless @compiled
 
@@ -719,9 +648,14 @@ module.exports = class Boilerplate
       else
         @compiled.ast.regionGrid[k]
 
-  drawPoints: (points, override) ->
+  drawCells: (points, offset, override) ->
+    # Helper to draw blocky cells
+    if typeof offset is 'function'
+      [offset, override] = [{dx:0, dy:0}, offset]
+
+    {dx, dy} = offset
     points.forEach (tx, ty, v) =>
-      {px, py} = @worldToScreen tx, ty
+      {px, py} = @worldToScreen tx+dx, ty+dy
       return unless px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
       @ctx.fillStyle = if typeof override is 'function'
         override tx, ty, v
@@ -732,7 +666,122 @@ module.exports = class Boilerplate
 
       @ctx.fillRect px, py, @size, @size
 
+  getShuttleBounds: (shuttle) ->
+    if !shuttle.bounds
+      left = top = 1<<30
+      right = bottom = -1<<30
 
+      {points, edges} = shuttle
+      (if points.size < edges.size then points else edges).forEach (x, y) ->
+        left = x if x < left
+        top = y if y < top
+        right = x if x > right
+        bottom = y if y > bottom
+
+      shuttle.bounds = {left, top, right, bottom}
+
+    return shuttle.bounds
+
+
+  drawShuttle: (shuttle) ->
+    # First get bounds - we might not even be able to display the shuttle.
+    bounds = @getShuttleBounds shuttle
+    {dx:sx, dy:sy} = shuttle.currentState
+    topLeft = @worldToScreen bounds.left+sx, bounds.top+sy
+    botRight = @worldToScreen bounds.right+sx+1, bounds.bottom+sy+1
+    return if topLeft.px > @canvas.width or
+      topLeft.py > @canvas.height or
+      botRight.px < 0 or
+      botRight.py < 0
+
+    border = if @size < 5 then 0 else (@size * 0.04+1)|0
+
+    # Thinshuttles first.
+    @ctx.strokeStyle = Boilerplate.colors.thinshuttle
+    size2 = (@size/2)|0
+    size4 = (@size/4)|0
+    @ctx.lineWidth = size4 * 2 # An even number.
+    shuttle.points.forEach (x, y, v) =>
+      return if v is 'shuttle'
+
+      for {dx,dy} in DIRS when shuttle.points.has x+dx, y+dy
+        # Draw a little line from here to there.
+        @ctx.beginPath()
+        {px, py} = @worldToScreen x+sx, y+sy
+        px += size2; py += size2
+        @ctx.moveTo px - size4*dx, py - size4*dy
+        @ctx.lineTo px + (@size+size4) * dx, py + (@size+size4) * dy
+        @ctx.stroke()
+
+    lineTo = (x, y, dir, em, first) =>
+      #console.log 'lineTo', x, y, dir, extendMult
+      # Move to the right of the edge.
+      ex = if dir in [UP, RIGHT] then x+1 else x
+      ey = if dir in [RIGHT, DOWN] then y+1 else y
+      ex += sx; ey += sy # transform by shuttle state x,y
+
+      {px, py} = @worldToScreen ex, ey
+
+      {dx, dy} = DIRS[dir]
+      # Come in from the edge
+      px += border * (-dx - dy*em)
+      py += border * (-dy + dx*em)
+
+      if first
+        @ctx.moveTo px, py
+      else
+        @ctx.lineTo px, py
+
+      #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
+ 
+    visited = new Set3
+    @ctx.beginPath()
+    # I can't simply draw from the first edge because the shuttle might have
+    # holes (and hence multiple continuous edges).
+    shuttle.pushEdges.forEach (x, y, dir) =>
+      # Using pushEdges because I want to draw the outline around just the
+      # solid shuttle cells.
+      return if visited.has x, y, dir
+
+      first = true # For the first point we need to call moveTo() not lineTo().
+      while !visited.has x, y, dir
+        visited.add x, y, dir
+
+        # Follow the edge around
+        {dx, dy} = DIRS[dir]
+        if shuttle.pushEdges.has(x2=x+dx-dy, y2=y+dy+dx, dir2=(dir+3)%4) and # Up-right
+            shuttle.points.has x-dy, y+dx # fix pincy corners
+          # Curves in _|
+          lineTo x, y, dir, 1, first
+          x = x2; y = y2; dir = dir2
+          first = no
+        else if shuttle.pushEdges.has (x2=x-dy), (y2=y+dx), dir
+          # straight __
+          #lineTo x, y, dir, 1, first
+          x = x2; y = y2
+        else
+          # curves down ^|
+          # We could check for it, but there's no point.
+          lineTo x, y, dir, -1, first
+          dir = (dir+1) % 4
+
+          first = no
+
+      # End the path.
+      @ctx.closePath()
+
+    @ctx.fillStyle = Boilerplate.colors.shuttle
+    @ctx.fill()
+
+    ###
+    @ctx.strokeStyle = 'white'
+    @ctx.beginPath()
+    @ctx.lineTo 100, 100
+    @ctx.lineTo 200, 100
+
+    @ctx.stroke()
+    #@ctx.fill()
+    ###
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -762,111 +811,20 @@ module.exports = class Boilerplate
 
     #console.log hover if hover
 
+
     # Draw the grid
-    @drawPoints @parsed.grid, (tx, ty, v) ->
-      if v in ['shuttle', 'thinshuttle']
-        # Draw the blank (white) under the shuttle.
-        Boilerplate.colors.nothing
-      else
-        # Normal case.
-        Boilerplate.colors[v] || 'red'
+    @drawCells @parsed.grid, (tx, ty, v) -> Boilerplate.colors[v] || 'red'
 
     @parsed.shuttles.forEach (shuttle) =>
-      @drawPoints shuttle.points, (tx, ty, v) ->
-        if hover is shuttle then 'darkred' else Boilerplate.colors[v]
+      @drawShuttle shuttle
+      #@drawCells shuttle.points, @parsed.getShuttlePos(shuttle), (tx, ty, v) ->
+      #  if hover is shuttle then 'darkred' else Boilerplate.colors[v]
 
     if hoverType is 'group'
       group = hover
-      @drawPoints hover.points, 'grey'
+      @drawCells hover.points, 'grey'
 
-    @draw() if t != 1 and needsRedraw
-    return
 
-  drawGridOLD: ->
-    # Will we need to redraw again soon?
-    needsRedraw = no
-
-    t = if @animTime && @lastStepAt
-      now = Date.now()
-      exact = Math.min 1, (now - @lastStepAt) / @animTime
-
-      ((exact * @size)|0) / @size
-    else
-      1
-
-    # Mouse position.
-    mx = @mouse.x
-    my = @mouse.y
-    {tx:mtx, ty:mty} = @screenToWorld mx, my
-
-    if @activeTool is 'move' and !@selection and !@imminentSelect
-      # Shade the thing the mouse is hovering over
-      k = "#{mtx},#{mty}"
-      rids = @getRegionId k
-      if Array.isArray rids # Its a bridge - we get 2 rids.
-        hoverZone = @compiled.getZone rids[0]
-        hoverZone2 = @compiled.getZone rids[1]
-      else
-        hoverZone = rids? && @compiled.getZone rids
-
-      # Only hover the shuttle grid if we're hovering on the shuttle itself.
-      hoverSid = if @draggedShuttle
-        @draggedShuttle.sid
-      else if @compiled.grid[k] in ['shuttle', 'thinshuttle']
-        @compiled.ast.shuttleGrid[k]
-    
-    getShadeColor = (rid) =>
-      zone = @compiled.getZone rid
-      pressure = @compiled.getPressure rid
-
-      if zone >= 0 && zone in [hoverZone, hoverZone2]
-        return if pressure < 0 then 'hsla(16,68%,50%,0.8)' else if pressure > 0 then 'hsla(120,52%,58%,0.8)' else 'rgba(0,0,0,0.5)'
-
-      if pressure
-        return if pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
-
-    # Draw the tiles
-    #pressure = @simulator.getPressure()
-    for k,v of @compiled.grid
-      {x:tx,y:ty} = parseXY k
-      {px, py} = @worldToScreen tx, ty
-      if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-        @ctx.fillStyle = if v in ['shuttle', 'thinshuttle']
-          # Draw the blank (white) under the shuttle.
-          Boilerplate.colors.nothing
-        else
-          # Normal case.
-          Boilerplate.colors[v] || 'red'
-
-        @ctx.fillRect px, py, @size, @size
-
-        continue unless @compiled
-
-        # Shading. We'll shade other cells that we're hovering over, or anything with pressure.
-        if v is 'bridge'
-          topColor = getShadeColor @compiled.ast.edgeGrid["#{k},true"]
-          b = (@size/4 + 1)|0
-          if topColor
-            @ctx.fillStyle = topColor
-            @ctx.fillRect px+b, py, @size-2*b, @size
-
-          leftColor = getShadeColor @compiled.ast.edgeGrid["#{k},false"]
-          if leftColor
-            @ctx.fillStyle = leftColor
-            @ctx.fillRect px, py+b, @size, @size-2*b
-
-        else if v
-          if hoverSid? and @compiled.ast.shuttleGrid[k] is hoverSid
-            @ctx.fillStyle = Boilerplate.colors.thinshuttle
-            @ctx.fillRect px, py, @size, @size
-          else
-            rid = @getRegionId k
-            if rid? and (shadeColor = getShadeColor rid)
-              @ctx.fillStyle = shadeColor
-              @ctx.fillRect px, py, @size, @size
-
-    for _,sid in @compiled.ast.shuttles
-      if @drawShuttle(t, sid) then needsRedraw = yes
 
     @draw() if t != 1 and needsRedraw
     return
