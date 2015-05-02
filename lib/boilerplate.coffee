@@ -736,7 +736,7 @@ module.exports = class Boilerplate
 
   drawCells: (points, offset, override) ->
     # Helper to draw blocky cells
-    if typeof offset is 'function'
+    if typeof offset in ['function', 'string']
       [offset, override] = [{dx:0, dy:0}, offset]
 
     {dx, dy} = offset
@@ -877,15 +877,15 @@ module.exports = class Boilerplate
     @pathAroundEdge engine.edges, 2
 
     @ctx.strokeStyle = if engine.type is 'positive'
-      'hsl(120, 52%, 46%)'
+      'hsl(120, 52%, 26%)'
     else
-      'hsl(16, 68%, 30%)'
+      'hsl(16, 68%, 20%)'
 
     @ctx.lineWidth = 4
     @ctx.stroke()
 
-    @ctx.fillStyle = Boilerplate.colors[engine.type]
-    @ctx.fill()
+    #@ctx.fillStyle = Boilerplate.colors[engine.type]
+    #@ctx.fill()
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -904,14 +904,13 @@ module.exports = class Boilerplate
     mx = @mouse.x; my = @mouse.y
     {tx:mtx, ty:mty, tc:mtc} = @screenToWorldCell mx, my
 
-    hover = hoverType = null
+    hover = {}
     if @activeTool is 'move' and !@selection and !@imminentSelect
       v = @parsed.grid.get mtx, mty
-      # What is the mouse hovering over? A shuttle?
-      if hover = @parsed.modules.shuttleGrid.get mtx, mty
-        hoverType = 'shuttle'
-      else if v and hover = @parsed.modules.groups.get mtx, mty, mtc
-        hoverType = 'group'
+      # What is the mouse hovering over?
+      hover.shuttle = @parsed.modules.shuttleGrid.get mtx, mty
+      hover.engine = @parsed.modules.engineGrid.get mtx, mty
+      hover.group = v and @parsed.modules.groups.get mtx, mty, mtc
 
     #console.log hover if hover
 
@@ -924,6 +923,8 @@ module.exports = class Boilerplate
     # Draw the engines
     #@parsed.modules.engines.forEach (engine) =>
     #  @drawEngine engine, t
+
+    @drawEngine hover.engine, t if hover.engine
 
     # Draw pressure
     @drawCells @parsed.grid, (tx, ty, v) =>
@@ -939,9 +940,7 @@ module.exports = class Boilerplate
     @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t
 
-    if hoverType is 'group'
-      group = hover
-      @drawCells hover.points, 'grey'
+    @drawCells hover.group.points, 'rgba(100,100,100,0.3)' if hover.group and !hover.engine and !hover.shuttle
 
 
 

@@ -14,12 +14,17 @@ worldList = document.getElementById 'worldlist'
 do populate = ->
   while worldList.firstChild
     worldList.removeChild worldList.firstChild
-  r = /^world (.*)$/
+
+  worlds = new Set
+  r = /^world(?:v2)? (.*)$/
   for i in [0...localStorage.length]
     k = localStorage.key i
     m = r.exec k
     continue unless m
     name = m[1]
+
+    continue if worlds.has name
+    worlds.add name
 
     option = document.createElement 'option'
     option.value = name
@@ -38,7 +43,7 @@ loadGrid = (name) ->
   gridStr = localStorage.getItem("worldv2 #{worldName}") or
     localStorage.getItem("world #{worldName}")
 
-  console.log "got", gridStr
+  #console.log "got", gridStr
 
   if gridStr != ''
     try
@@ -79,11 +84,13 @@ reset = (grid) ->
   setRunning true
 
 bp.onEditFinish = save = ->
-  #console.log 'saving', worldName
   grid = bp.getJSONGrid()
-  if isEmpty grid
+  #console.log grid
+  if isEmpty(grid.base) && isEmpty(grid.shuttles)
+    console.log 'removing', worldName
     localStorage.removeItem "worldv2 #{worldName}"
   else
+    console.log 'saving', worldName
     localStorage.setItem "worldv2 #{worldName}", JSON.stringify grid
 setInterval save, 5000
 
