@@ -34,7 +34,12 @@ loadGrid = (name) ->
 
   populate()
 
-  gridStr = localStorage.getItem "world #{worldName}"
+  # Load from either location (preferring the new). We'll only save back to the new slots.
+  gridStr = localStorage.getItem("worldv2 #{worldName}") or
+    localStorage.getItem("world #{worldName}")
+
+  console.log "got", gridStr
+
   if gridStr != ''
     try
       grid = JSON.parse gridStr
@@ -77,9 +82,9 @@ bp.onEditFinish = save = ->
   #console.log 'saving', worldName
   grid = bp.getJSONGrid()
   if isEmpty grid
-    localStorage.removeItem "world #{worldName}"
+    localStorage.removeItem "worldv2 #{worldName}"
   else
-    localStorage.setItem "world #{worldName}", JSON.stringify grid
+    localStorage.setItem "worldv2 #{worldName}", JSON.stringify grid
 setInterval save, 5000
 
 window.addEventListener 'keypress', (e) ->
