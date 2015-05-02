@@ -375,6 +375,8 @@ module.exports = class Boilerplate
         @draw()
 
     @el.onmousedown = (e) =>
+      updateMousePos e
+
       if e.shiftKey
         @mouse.mode = 'select'
         @selection = @selectOffset = null
@@ -384,21 +386,16 @@ module.exports = class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          v = @parsed.grid.get @mouse.tx, @mouse.ty
-          if v in ['shuttle', 'thinshuttle']
-            # find the shuttle id for the shuttle under the cursor
-            #@compile() if @needsCompile
+          if (shuttle = @parsed.modules.shuttleGrid.get @mouse.tx, @mouse.ty)
+            # Grab that sucker!
+            console.log shuttle
 
-            throw Error 'blerk not ported'
-            sid = @compiled.ast.shuttleGrid[[@mouse.tx, @mouse.ty]]
-            shuttle = @compiled.ast.shuttles[sid]
-            if !shuttle.immobile
-              {dx,dy} = shuttle.states[@compiled.states[sid]]
-              @draggedShuttle =
-                sid: sid
-                heldPoint: {x:@mouse.tx - dx, y:@mouse.ty - dy}
+            {dx, dy} = shuttle.currentState
+            @draggedShuttle =
+              shuttle: shuttle
+              heldPoint: {x:@mouse.tx - dx, y:@mouse.ty - dy}
 
-            #@simulator.holdShuttle @draggedShuttle
+            console.log @draggedShuttle
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -537,24 +534,48 @@ module.exports = class Boilerplate
     moveShuttle @compiled.grid, @compiled.ast.shuttles, sid, from, to
 
   dragShuttleTo: (tx, ty) ->
-    throw Error 'blerk'
     return unless @draggedShuttle?
 
-    {sid, heldPoint} = @draggedShuttle
-    shuttle = @compiled.ast.shuttles[sid]
+    {shuttle, heldPoint} = @draggedShuttle
 
-    dist2 = ({x:x1,y:y1},{x:x2,y:y2}) -> dx = x2-x1; dy = y2-y1; dx*dx+dy*dy
+    # This is a bit awkward - we don't generate all states.
+    wantedDx = tx - heldPoint.x
+    wantedDy = ty - heldPoint.y
+
+    states = @parsed.modules.shuttleStates.get shuttle
+
+    # First find the closest existing state to the mouse.
     minDist = null
-    bestState = @compiled.states[sid]
-    for {dx, dy},state in shuttle.states
-      if (d = dist2({x:heldPoint.x + dx, y:heldPoint.y + dy}, {x:tx, y:ty})) < minDist or !minDist?
-        bestState = state
-        minDist = d
+    bestState = null
 
-    if @states[sid] != bestState
-      @moveShuttle sid, @states[sid], bestState
-      @states[sid] = @prevStates[sid] = bestState
-      @compiled.calcPressure()
+    dist2 = (dx, dy) -> dx*dx+dy*dy
+
+    states.forEach (dx, dy, state) ->
+      if state.valid
+        d = dist2 wantedDx-dx, wantedDy-dy
+        if !bestState or d < minDist
+          bestState = state
+          minDist = d
+
+    # Ok, we've found the *closest* state. Lets see if we can do better by
+    # making some more states until we get there. We'll do a dumb beam search
+    getStateNear = @parsed.modules.shuttleStates.getStateNear.bind(@parsed.modules.shuttleStates)
+    while (bestState.dx != wantedDx || bestState.dy != wantedDy)
+      next = null
+      distX = wantedDx - bestState.dx
+      distY = wantedDy - bestState.dy
+      if distX < 0 then next = getStateNear bestState, LEFT
+      if !next && distX > 0 then next = getStateNear bestState, RIGHT
+      if !next && distY < 0 then next = getStateNear bestState, UP
+      if !next && distY > 0 then next = getStateNear bestState, DOWN
+
+      if next
+        bestState = next
+      else
+        break
+
+    if shuttle.currentState != bestState
+      @parsed.moveShuttle shuttle, bestState
       @draw()
 
   #########################
