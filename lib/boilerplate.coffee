@@ -507,30 +507,9 @@ module.exports = class Boilerplate
   step: ->
     @parsed.step()
     @lastStepAt = Date.now()
+    # Preferably, only redraw if step did something.
     @draw()
-    return
-
-    #@compile() if @needsCompile
-
-    anythingChanged = no
-
-    for v, sid in @states
-      @prevStates[sid] = @states[sid]
-
-    @compiled.updateShuttles()
-
-    if @draggedShuttle?
-      @states[@draggedShuttle.sid] = @prevStates[@draggedShuttle.sid]
-
-    for v, sid in @states
-      if @prevStates[sid] != v
-        anythingChanged = yes
-        @moveShuttle sid, @prevStates[sid], v
-
-    if anythingChanged
-      @compiled.calcPressure()
-      @draw()
-      @updateCursor()
+    @updateCursor()
 
   moveShuttle: (sid, from, to) ->
     throw Error 'blerk'
@@ -822,7 +801,7 @@ module.exports = class Boilerplate
 
 
 
-  drawShuttle: (shuttle, t) ->
+  drawShuttle: (shuttle, t, isHovered) ->
     # First get bounds - we might not even be able to display the shuttle.
     if (prevState = @parsed.modules.prevState.get shuttle)
       sx = lerp t, prevState.dx, shuttle.currentState.dx
@@ -841,7 +820,10 @@ module.exports = class Boilerplate
     border = if @size < 5 then 0 else (@size * 0.04+1)|0
 
     # Thinshuttles first.
-    @ctx.strokeStyle = Boilerplate.colors.thinshuttle
+    @ctx.strokeStyle = if isHovered
+      'hsl(283, 89%, 65%)'
+    else
+      Boilerplate.colors.thinshuttle
     size2 = (@size/2)|0
     size4 = (@size/4)|0
     @ctx.lineWidth = size4 * 2 # An even number.
@@ -870,6 +852,12 @@ module.exports = class Boilerplate
     @pathAroundEdge shuttle.pushEdges, border, {sx, sy}
     @ctx.fillStyle = Boilerplate.colors.shuttle
     @ctx.fill()
+
+    if isHovered
+      @pathAroundEdge shuttle.pushEdges, border*2, {sx, sy}
+      @ctx.lineWidth = border*4
+      @ctx.strokeStyle = 'hsla(283, 65%, 25%, 0.5)'
+      @ctx.stroke()
     
     return yes
 
@@ -938,7 +926,7 @@ module.exports = class Boilerplate
 
     # Draw the shuttles
     @parsed.modules.shuttles.forEach (shuttle) =>
-      needsRedraw = true if @drawShuttle shuttle, t
+      needsRedraw = true if @drawShuttle shuttle, t, hover.shuttle == shuttle
 
     @drawCells hover.group.points, 'rgba(100,100,100,0.3)' if hover.group and !hover.engine and !hover.shuttle
 
