@@ -43,7 +43,6 @@ PrevState = (stepWatch, shuttles, currentStates) ->
   currentStates.watch.on (shuttle, prev) ->
     return unless prev # This will fire when the shuttle is first created.
     prevState.set shuttle, prev
-    console.log 'ps', prev
 
   stepWatch.on (time) ->
     return unless time is 'before'
@@ -339,32 +338,38 @@ module.exports = class Boilerplate
 
     # ----- Event handlers
 
-    @el.onmousemove = (e) =>
-      @imminentSelect = !!e.shiftKey
-      # If the mouse is released / pressed while not in the box, handle that correctly
-
-      @el.onmousedown e if e.button && !@mouse.mode
-
+    updateMousePos = (e) =>
       @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
       @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
       {tx, ty, tc} = @screenToWorldCell @mouse.x, @mouse.y
 
       if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
-        if @mouse.mode is 'paint' and e.shiftKey
-          switch @mouse.direction
-            when 'x' then {ty} = @mouse
-            when 'y' then {tx} = @mouse
-            when null
-              @mouse.direction = if tx != @mouse.tx then 'x' else 'y'
-
         @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
+        return yes
+      else
+        return no
+
+    @el.onmousemove = (e) =>
+      @imminentSelect = !!e.shiftKey
+      # If the mouse is released / pressed while not in the box, handle that correctly
+
+      @el.onmousedown e if e.button && !@mouse.mode
+
+      if updateMousePos e
+        #if @mouse.mode is 'paint' and e.shiftKey
+        #  switch @mouse.direction
+        #    when 'x' then {ty} = @mouse
+        #    when 'y' then {tx} = @mouse
+        #    when null
+        #      @mouse.direction = if tx != @mouse.tx then 'x' else 'y'
+
 
         switch @mouse.mode
           when 'paint' then @paint()
           when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
 
-        @dragShuttleTo tx, ty if @draggedShuttle?
+        @dragShuttleTo @mouse.tx, @mouse.ty if @draggedShuttle?
 
         @updateCursor()
         @draw()
@@ -436,6 +441,7 @@ module.exports = class Boilerplate
     @el.onwheel = (e) =>
       #console.log e.wheelDeltaX, e.deltaX, e.deltaMode
       return unless @canScroll
+      updateMousePos e
       if e.shiftKey
         oldsize = @size
         @zoomBy -e.deltaY / 400
@@ -556,32 +562,52 @@ module.exports = class Boilerplate
   #########################
   copySubgrid: (rect) ->
     {tx, ty, tw, th} = rect
-    subgrid = new Map2
-    subgrid.tw = tw; subgrid.th = th
+    subgrid =
+      tw: tw
+      th: th
+      base: new Map2
+      shuttles: new Map2
 
     for y in [ty...ty+th]
       for x in [tx...tx+tw]
         if v = @parsed.grid.get x, y
-          subgrid.set x-tx, y-ty, v
+          subgrid.base.set x-tx, y-ty, v
+        if v = @parsed.modules.shuttleGrid.getValue x, y
+          subgrid.shuttles.set x-tx, y-ty, v
+
+    #console.log subgrid
     subgrid
 
   flip: (dir) ->
     return unless @selection
-    newSelection = new Map2
-    tw = newSelection.tw = @selection.tw; th = newSelection.th = @selection.th
 
-    @selection.forEach (x, y, v) ->
+    newSelection =
+      tw: tw = @selection.tw
+      th: th = @selection.th
+      base: new Map2
+      shuttles: new Map2
+
+    copyTo = (dest) -> (x, y, v) ->
       x_ = if dir is 'x' then tw-1 - x else x
       y_ = if dir is 'y' then th-1 - y else y
-      newSelection.set x_, y_, v
+      dest.set x_, y_, v
+    @selection.base.forEach copyTo newSelection.base
+    @selection.shuttles.forEach copyTo newSelection.shuttles
+
     @selection = newSelection
 
   mirror: ->
     return unless @selection
-    newSelection = new Map2
-    tw = newSelection.tw = @selection.tw; th = newSelection.th = @selection.th
 
-    @selection.forEach (x, y, v) -> newSelection.set ty, tx, v
+    newSelection =
+      tw: @selection.th # Swapped! So tricky.
+      th: @selection.tw
+      base: new Map2
+      shuttles: new Map2
+
+    copyTo = (dest) -> (x, y, v) -> dest.set y, x, v
+    @selection.base.forEach copyTo newSelection.base
+    @selection.shuttles.forEach copyTo newSelection.shuttles
     @selection = newSelection
 
   stamp: ->
@@ -594,18 +620,22 @@ module.exports = class Boilerplate
     # We need to set all values, even the nulls.
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
-        changed = true if @set mtx+x, mty+y, @selection.get x, y
+        changed = true if @set mtx+x, mty+y, @selection.base.get x, y
+
+        shuttleV = @selection.shuttles.get x, y
+        changed = true if @set mtx+x, mty+y, shuttleV if shuttleV
 
     @draw() if changed
 
   copy: (e) ->
     #console.log 'copy'
     if @selection
-      json = {tx:@selection.tx, ty:@selection.ty}
-      @selection.forEach (x, y, v) -> json["#{x},#{y}"] = v if v?
-      e.clipboardData.setData 'text', JSON.stringify json
+      json = {tw:@selection.tw, th:@selection.th, base:{}, shuttles:{}}
+      @selection.base.forEach (x, y, v) -> json.base["#{x},#{y}"] = v if v?
+      @selection.shuttles.forEach (x, y, v) -> json.shuttles["#{x},#{y}"] = v if v?
 
-      console.log JSON.stringify json
+      e.clipboardData.setData 'text', JSON.stringify json
+      #console.log JSON.stringify json
     e.preventDefault()
 
   paste: (e) ->
@@ -614,13 +644,30 @@ module.exports = class Boilerplate
     if data
       try
         json = JSON.parse data
-        @selection = new Map2
-        tw = th = 0
-        for k, v of json when k not in ['tw', 'th']
-          {x,y} = util.parseXY k
-          tw = x+1 if x >= tw
-          th = y+1 if y >= th
-          @selection.set x, y, v
+        @selection =
+          base: new Map2
+          shuttles: new Map2
+
+        tw = json.tw or 0
+        th = json.th or 0
+        if json.base
+          # New style
+          for k, v of json.base
+            {x,y} = util.parseXY k
+            tw = x+1 if x >= tw
+            th = y+1 if y >= th
+            @selection.base.set x, y, v
+          for k, v of json.shuttles
+            {x,y} = util.parseXY k
+            @selection.shuttles.set x, y, v
+        else
+          # Old style
+          for k, v of json when k not in ['tw', 'th']
+            {x,y} = util.parseXY k
+            tw = x+1 if x >= tw
+            th = y+1 if y >= th
+            @selection.set x, y, v
+
         @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
 
@@ -672,12 +719,13 @@ module.exports = class Boilerplate
     points.forEach (tx, ty, v) =>
       {px, py} = @worldToScreen tx+dx, ty+dy
       return unless px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-      @ctx.fillStyle = if typeof override is 'function'
-        override tx, ty, v
+      if typeof override is 'function'
+        return unless (style = override tx, ty, v)
+        @ctx.fillStyle = style
       else if override
-        override
+        @ctx.fillStyle = override
       else
-        Boilerplate.colors[v] || 'red'
+        @ctx.fillStyle = Boilerplate.colors[v] || 'red'
 
       @ctx.fillRect px, py, @size, @size
 
@@ -809,9 +857,9 @@ module.exports = class Boilerplate
     if @activeTool is 'move' and !@selection and !@imminentSelect
       v = @parsed.grid.get mtx, mty
       # What is the mouse hovering over? A shuttle?
-      if hover = @parsed.shuttles.get mtx, mty
+      if hover = @parsed.modules.shuttleGrid.get mtx, mty
         hoverType = 'shuttle'
-      else if v and hover = @parsed.groups.get mtx, mty, mtc
+      else if v and hover = @parsed.modules.groups.get mtx, mty, mtc
         hoverType = 'group'
 
     #console.log hover if hover
@@ -820,7 +868,23 @@ module.exports = class Boilerplate
     # Draw the grid
     @drawCells @parsed.grid, (tx, ty, v) -> Boilerplate.colors[v] || 'red'
 
-    @parsed.shuttles.forEach (shuttle) =>
+    zoneAt = (tx, ty) =>
+      group = @parsed.modules.groups.get tx, ty, 0
+      @parsed.modules.zones.getZoneForGroup(group) if group
+
+    @drawCells @parsed.grid, (tx, ty, v) =>
+      if v in ['nothing', 'thinsolid', 'thinshuttle']
+        zone = zoneAt tx, ty
+        #for {dx, dy} in DIRS when @parsed.grid.get(tx+dx, ty+dy) in ['nothing', 'thinsolid']
+        #  break if zone?.pressure
+        #  zone = zoneAt tx+dx, ty+dy
+        if zone?.pressure
+          return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
+        else
+          return null
+
+
+    @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t
       #@drawCells shuttle.points, @parsed.getShuttlePos(shuttle), (tx, ty, v) ->
       #  if hover is shuttle then 'darkred' else Boilerplate.colors[v]
@@ -864,7 +928,7 @@ module.exports = class Boilerplate
           for x in [0...@selection.tw]
             {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
             if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
-              v = @selection.get x, y
+              v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
               @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
               @ctx.fillRect px, py, @size, @size
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
