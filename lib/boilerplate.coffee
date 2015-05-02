@@ -63,7 +63,6 @@ addModules = (jit) ->
   
 
 
-
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
 module.exports = class Boilerplate
@@ -371,8 +370,8 @@ module.exports = class Boilerplate
 
         @dragShuttleTo @mouse.tx, @mouse.ty if @draggedShuttle?
 
-        @updateCursor()
         @draw()
+      @updateCursor()
 
     @el.onmousedown = (e) =>
       updateMousePos e
@@ -388,14 +387,15 @@ module.exports = class Boilerplate
         if @activeTool is 'move'
           if (shuttle = @parsed.modules.shuttleGrid.get @mouse.tx, @mouse.ty)
             # Grab that sucker!
-            console.log shuttle
+            #console.log shuttle
 
             {dx, dy} = shuttle.currentState
             @draggedShuttle =
               shuttle: shuttle
               heldPoint: {x:@mouse.tx - dx, y:@mouse.ty - dy}
+            shuttle.held = true
 
-            console.log @draggedShuttle
+            #console.log @draggedShuttle
         else
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
@@ -405,7 +405,10 @@ module.exports = class Boilerplate
       @draw()
 
     @el.onmouseup = =>
-      @draggedShuttle = null
+      if @draggedShuttle
+        @draggedShuttle.shuttle.held = false
+        @draggedShuttle = null
+
       
       #@compile() if @needsCompile
 
@@ -456,9 +459,9 @@ module.exports = class Boilerplate
   updateCursor: ->
     @canvas.style.cursor =
       if @activeTool is 'move' and !@imminentSelect
-        if @draggedShuttle?
+        if @draggedShuttle
           '-webkit-grabbing'
-        else if @parsed.grid.get(@mouse.tx, @mouse.ty) in ['shuttle', 'thinshuttle']
+        else if @parsed.modules.shuttleGrid.get @mouse.tx, @mouse.ty
           '-webkit-grab'
         else
           'default'
@@ -750,6 +753,75 @@ module.exports = class Boilerplate
 
       @ctx.fillRect px, py, @size, @size
 
+  # Draw a path around the specified blob edge. The edge should be a Set3 of (x,y,dir).
+  pathAroundEdge: (edge, border, pos) ->
+    if pos
+      {sx, sy} = pos
+    else
+      sx = sy = 0
+
+    # Ok, now for the actual shuttles themselves
+    lineTo = (x, y, dir, em, first) =>
+      #console.log 'lineTo', x, y, dir, extendMult
+      # Move to the right of the edge.
+      ex = if dir in [UP, RIGHT] then x+1 else x
+      ey = if dir in [RIGHT, DOWN] then y+1 else y
+      ex += sx; ey += sy # transform by shuttle state x,y
+
+      {px, py} = @worldToScreen ex, ey
+
+      {dx, dy} = DIRS[dir]
+      # Come in from the edge
+      px += border * (-dx - dy*em)
+      py += border * (-dy + dx*em)
+
+      if first
+        @ctx.moveTo px, py
+      else
+        @ctx.lineTo px, py
+
+      #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
+ 
+    visited = new Set3
+    @ctx.beginPath()
+    # I can't simply draw from the first edge because the shuttle might have
+    # holes (and hence multiple continuous edges).
+    edge.forEach (x, y, dir) =>
+      # Using pushEdges because I want to draw the outline around just the
+      # solid shuttle cells.
+      return if visited.has x, y, dir
+
+      first = true # For the first point we need to call moveTo() not lineTo().
+      while !visited.has x, y, dir
+        visited.add x, y, dir
+
+        # Follow the edge around
+        {dx, dy} = DIRS[dir]
+        if edge.has(x2=x+dx-dy, y2=y+dy+dx, dir2=(dir+3)%4) and # Up-right
+            !edge.has(x, y, (dir+1)%4) # fix pincy corners
+          #shuttle.points.get(x-dy, y+dx) is 'shuttle' # fix pincy corners
+          # Curves in _|
+          lineTo x, y, dir, 1, first
+          x = x2; y = y2; dir = dir2
+          first = no
+        else if edge.has (x2=x-dy), (y2=y+dx), dir
+          # straight __
+          #lineTo x, y, dir, 1, first
+          x = x2; y = y2
+        else
+          # curves down ^|
+          # We could check for it, but there's no point.
+          lineTo x, y, dir, -1, first
+          dir = (dir+1) % 4
+
+          first = no
+
+      # End the path.
+      @ctx.closePath()
+ 
+
+
+
   drawShuttle: (shuttle, t) ->
     # First get bounds - we might not even be able to display the shuttle.
     if (prevState = @parsed.modules.prevState.get shuttle)
@@ -795,78 +867,25 @@ module.exports = class Boilerplate
         @ctx.fillStyle = Boilerplate.colors.thinshuttle
         @ctx.fillRect px + size4, py + size4, size2, size2
 
-    # Ok, now for the actual shuttles themselves
-    lineTo = (x, y, dir, em, first) =>
-      #console.log 'lineTo', x, y, dir, extendMult
-      # Move to the right of the edge.
-      ex = if dir in [UP, RIGHT] then x+1 else x
-      ey = if dir in [RIGHT, DOWN] then y+1 else y
-      ex += sx; ey += sy # transform by shuttle state x,y
-
-      {px, py} = @worldToScreen ex, ey
-
-      {dx, dy} = DIRS[dir]
-      # Come in from the edge
-      px += border * (-dx - dy*em)
-      py += border * (-dy + dx*em)
-
-      if first
-        @ctx.moveTo px, py
-      else
-        @ctx.lineTo px, py
-
-      #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
- 
-    visited = new Set3
-    @ctx.beginPath()
-    # I can't simply draw from the first edge because the shuttle might have
-    # holes (and hence multiple continuous edges).
-    shuttle.pushEdges.forEach (x, y, dir) =>
-      # Using pushEdges because I want to draw the outline around just the
-      # solid shuttle cells.
-      return if visited.has x, y, dir
-
-      first = true # For the first point we need to call moveTo() not lineTo().
-      while !visited.has x, y, dir
-        visited.add x, y, dir
-
-        # Follow the edge around
-        {dx, dy} = DIRS[dir]
-        if shuttle.pushEdges.has(x2=x+dx-dy, y2=y+dy+dx, dir2=(dir+3)%4) and # Up-right
-            shuttle.points.get(x-dy, y+dx) is 'shuttle' # fix pincy corners
-          # Curves in _|
-          lineTo x, y, dir, 1, first
-          x = x2; y = y2; dir = dir2
-          first = no
-        else if shuttle.pushEdges.has (x2=x-dy), (y2=y+dx), dir
-          # straight __
-          #lineTo x, y, dir, 1, first
-          x = x2; y = y2
-        else
-          # curves down ^|
-          # We could check for it, but there's no point.
-          lineTo x, y, dir, -1, first
-          dir = (dir+1) % 4
-
-          first = no
-
-      # End the path.
-      @ctx.closePath()
-
+    @pathAroundEdge shuttle.pushEdges, border, {sx, sy}
     @ctx.fillStyle = Boilerplate.colors.shuttle
     @ctx.fill()
-
-    ###
-    @ctx.strokeStyle = 'white'
-    @ctx.beginPath()
-    @ctx.lineTo 100, 100
-    @ctx.lineTo 200, 100
-
-    @ctx.stroke()
-    #@ctx.fill()
-    ###
     
     return yes
+
+  drawEngine: (engine, t) ->
+    @pathAroundEdge engine.edges, 2
+
+    @ctx.strokeStyle = if engine.type is 'positive'
+      'hsl(120, 52%, 46%)'
+    else
+      'hsl(16, 68%, 30%)'
+
+    @ctx.lineWidth = 4
+    @ctx.stroke()
+
+    @ctx.fillStyle = Boilerplate.colors[engine.type]
+    @ctx.fill()
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -898,28 +917,27 @@ module.exports = class Boilerplate
 
 
     # Draw the grid
-    @drawCells @parsed.grid, (tx, ty, v) -> Boilerplate.colors[v] || 'red'
+    @drawCells @parsed.grid, (tx, ty, v) ->
+      #return if v in ['positive', 'negative']
+      Boilerplate.colors[v] || 'red'
 
-    zoneAt = (tx, ty) =>
-      group = @parsed.modules.groups.get tx, ty, 0
-      @parsed.modules.zones.getZoneForGroup(group) if group
+    # Draw the engines
+    #@parsed.modules.engines.forEach (engine) =>
+    #  @drawEngine engine, t
 
+    # Draw pressure
     @drawCells @parsed.grid, (tx, ty, v) =>
       if v in ['nothing', 'thinsolid', 'thinshuttle']
-        zone = zoneAt tx, ty
-        #for {dx, dy} in DIRS when @parsed.grid.get(tx+dx, ty+dy) in ['nothing', 'thinsolid']
-        #  break if zone?.pressure
-        #  zone = zoneAt tx+dx, ty+dy
+        group = @parsed.modules.groups.get tx, ty, 0
+        zone = @parsed.modules.zones.getZoneForGroup(group) if group
         if zone?.pressure
           return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
         else
           return null
 
-
+    # Draw the shuttles
     @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t
-      #@drawCells shuttle.points, @parsed.getShuttlePos(shuttle), (tx, ty, v) ->
-      #  if hover is shuttle then 'darkred' else Boilerplate.colors[v]
 
     if hoverType is 'group'
       group = hover
