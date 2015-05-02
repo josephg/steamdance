@@ -755,15 +755,26 @@ module.exports = class Boilerplate
     shuttle.points.forEach (x, y, v) =>
       return if v is 'shuttle'
 
+      # base x, y of the tile
+      {px, py} = @worldToScreen x+sx, y+sy
+      px += size2; py += size2
+
+      numLines = 0
       for {dx,dy} in DIRS when shuttle.points.has x+dx, y+dy
         # Draw a little line from here to there.
         @ctx.beginPath()
-        {px, py} = @worldToScreen x+sx, y+sy
-        px += size2; py += size2
         @ctx.moveTo px - size4*dx, py - size4*dy
         @ctx.lineTo px + (@size+size4) * dx, py + (@size+size4) * dy
         @ctx.stroke()
+        numLines++
 
+      if numLines is 0
+        # Erk, the shuttle would be invisible. I'll draw a sympathy square.
+        {px, py} = @worldToScreen x+sx, y+sy
+        @ctx.fillStyle = Boilerplate.colors.thinshuttle
+        @ctx.fillRect px + size4, py + size4, size2, size2
+
+    # Ok, now for the actual shuttles themselves
     lineTo = (x, y, dir, em, first) =>
       #console.log 'lineTo', x, y, dir, extendMult
       # Move to the right of the edge.
@@ -801,7 +812,7 @@ module.exports = class Boilerplate
         # Follow the edge around
         {dx, dy} = DIRS[dir]
         if shuttle.pushEdges.has(x2=x+dx-dy, y2=y+dy+dx, dir2=(dir+3)%4) and # Up-right
-            shuttle.points.has x-dy, y+dx # fix pincy corners
+            shuttle.points.get(x-dy, y+dx) is 'shuttle' # fix pincy corners
           # Curves in _|
           lineTo x, y, dir, 1, first
           x = x2; y = y2; dir = dir2
