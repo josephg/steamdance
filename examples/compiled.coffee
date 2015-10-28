@@ -55,16 +55,15 @@ running = false
 
 timer = null
 setRunning = (v) ->
-  return if running is v
-  running = v
-  if v
-    timer = setInterval =>
-      bp.step()
-    , 200
-  else
-    clearInterval timer
-
   document.getElementById('panel').className = if v then 'running' else 'stopped'
+  if running != v
+    running = v
+    if v
+      timer = setInterval =>
+        bp.step()
+      , 200
+    else
+      clearInterval timer
 
 setRunning true
 
@@ -149,4 +148,17 @@ do ->
     selected = e
 
   bp.onToolChanged(bp.activeTool)
+
+window.backup = ->
+  data = {}
+  for i in [0...localStorage.length]
+    k = localStorage.key i
+    v = JSON.parse localStorage.getItem k
+    data[k] = v
+
+  data
+
+
+
+
 

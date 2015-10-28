@@ -85,7 +85,8 @@ module.exports = class Boilerplate
     return
 
   @colors =
-    bridge: 'hsl(203, 67%, 51%)'
+    bridge: 'hsl(216, 92%, 33%)'
+    thinbridge: 'hsl(203, 67%, 51%)'
     negative: 'hsl(16, 68%, 50%)'
     nothing: 'hsl(0, 0%, 100%)'
     positive: 'hsl(120, 52%, 58%)'
@@ -139,7 +140,7 @@ module.exports = class Boilerplate
         54: 'shuttle'
         55: 'thinshuttle'
         56: 'bridge'
-        #57: 'buttonup'
+        57: 'thinbridge'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -149,7 +150,7 @@ module.exports = class Boilerplate
         71: 'thinsolid' # g
         68: 'solid' # d
         66: 'bridge' # b
-        #84: 'buttonup' # t
+        84: 'thinbridge' # t
       })[kc]
       if newTool
         @selection = @selectOffset = null
@@ -286,6 +287,8 @@ module.exports = class Boilerplate
   setJSONGrid: (json) ->
     @parsed = Jit json
     addModules @parsed
+    @draw()
+
   getJSONGrid: -> @parsed.toJSON()
 
   constructor: (@el, options) ->
@@ -385,7 +388,7 @@ module.exports = class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          if (shuttle = @parsed.modules.shuttleGrid.get @mouse.tx, @mouse.ty)
+          if (shuttle = @parsed.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty)
             # Grab that sucker!
             #console.log shuttle
 
@@ -461,7 +464,7 @@ module.exports = class Boilerplate
       if @activeTool is 'move' and !@imminentSelect
         if @draggedShuttle
           '-webkit-grabbing'
-        else if @parsed.modules.shuttleGrid.get @mouse.tx, @mouse.ty
+        else if @parsed.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty
           '-webkit-grab'
         else
           'default'
@@ -669,7 +672,11 @@ module.exports = class Boilerplate
             {x,y} = util.parseXY k
             tw = x+1 if x >= tw
             th = y+1 if y >= th
-            @selection.set x, y, v
+            if v in ['shuttle', 'thinshuttle']
+              @selection.base.set x, y, 'nothing'
+              @selection.shuttles.set x, y, v
+            else
+              @selection.base.set x, y, v
 
         @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
@@ -896,9 +903,10 @@ module.exports = class Boilerplate
     if @activeTool is 'move' and !@selection and !@imminentSelect
       v = @parsed.grid.get mtx, mty
       # What is the mouse hovering over?
-      hover.shuttle = @parsed.modules.shuttleGrid.get mtx, mty
+      hover.shuttle = @parsed.modules.shuttleGrid.getShuttle mtx, mty
       hover.engine = @parsed.modules.engineGrid.get mtx, mty
       hover.group = v and @parsed.modules.groups.get mtx, mty, mtc
+      hover.zone = if hover.group then @parsed.modules.zones.getZoneForGroup hover.group
 
     #console.log hover if hover
 
