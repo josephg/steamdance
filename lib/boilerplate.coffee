@@ -536,11 +536,11 @@ module.exports = class Boilerplate
     @draw()
 
   step: ->
-    @parsed.step()
-    @lastStepAt = Date.now()
-    # Preferably, only redraw if step did something.
-    @draw()
-    @updateCursor()
+    # Only redraw if step did something.
+    if @parsed.step()
+      @lastStepAt = Date.now()
+      @draw()
+      @updateCursor()
 
   moveShuttle: (sid, from, to) ->
     throw Error 'blerk'
