@@ -157,8 +157,3 @@ window.backup = ->
     data[k] = v
 
   data
-
-
-
-
-

@@ -130,6 +130,7 @@ module.exports = class Boilerplate
   addKeyListener: (el) ->
     el.addEventListener 'keydown', (e) =>
       kc = e.keyCode
+      # console.log kc
 
       newTool = ({
         # 1-9
@@ -185,6 +186,11 @@ module.exports = class Boilerplate
         when 77 # m
           @mirror() if @selection
 
+      if (e.ctrlKey || e.metaKey) and kc is 90 # ctrl+z or cmd+z
+        if e.shiftKey then @redo() else @undo()
+      else if e.ctrlKey and kc is 89 # ctrl+y for windows
+        @redo()
+
       @draw()
 
     el.addEventListener 'keyup', (e) =>
@@ -205,10 +211,10 @@ module.exports = class Boilerplate
         when 40 # down
           @keysPressed &= ~KEY.down
 
-
     el.addEventListener 'blur', =>
       @mouse.mode = null
       @imminentSelect = false
+      @editStop()
       @draw()
 
     el.addEventListener 'copy', (e) => @copy(e)
@@ -239,7 +245,7 @@ module.exports = class Boilerplate
     tx = Math.floor(tx_); ty = Math.floor(ty_)
 
     # There's no cell for solid (null) cells.
-    v = @parsed.grid.get tx, ty
+    v = @parsed.getBase tx, ty
     return {tx, ty, cell:null} unless v
 
     offX = tx_ - tx; offY = ty_ - ty
@@ -271,12 +277,28 @@ module.exports = class Boilerplate
     @zoomLevel = clamp @zoomLevel, 1/20, 5
     @size = Math.floor 20 * @zoomLevel
 
+  setBase: (x, y, v) ->
+    prev = @parsed.getBase x, y
+    return false if v == prev || (!v? and !prev?)
+    @currentEdit.base.set x, y, prev if @currentEdit
+    @parsed.set x, y, v
+    return true
+
+  setShuttle: (x, y, v) ->
+    prev = @parsed.getShuttle x, y
+    return false if v == prev || (!v? and !prev?)
+    @currentEdit.shuttles.set x, y, prev if @currentEdit
+    @parsed.set x, y, v
+    return true
+
   set: (x, y, v) ->
-    if @parsed.set x, y, v
-      @onEdit? x, y, v
-      return yes
+    if v in ['shuttle', 'thinshuttle']
+      # Order is important here!
+      @setShuttle(x, y, v) || @setBase(x, y, 'nothing')
     else
-      return no
+      ret = @setShuttle x, y, null
+      ret ||= @setBase x, y, v
+      ret
 
   resetView: (options) ->
     @zoomLevel = 1
@@ -303,9 +325,7 @@ module.exports = class Boilerplate
     @resetView options
 
     @canScroll = options.canScroll ? true
-
     @animTime = options.animTime || 0
-
     @useWebGL = options.useWebGL || false
 
     #@el = document.createElement 'div'
@@ -328,6 +348,11 @@ module.exports = class Boilerplate
 
 
     #@el.onresize = -> console.log 'yo'
+
+    # A list of patches
+    @currentEdit = null
+    @undoStack = []
+    @redoStack = []
 
     @mouse = {x:null,y:null, mode:null}
     #@placing = 'nothing'
@@ -404,6 +429,7 @@ module.exports = class Boilerplate
           @mouse.mode = 'paint'
           @mouse.from = {tx:@mouse.tx, ty:@mouse.ty}
           @mouse.direction = null
+          @editStart()
           @paint()
       @updateCursor()
       @draw()
@@ -413,7 +439,6 @@ module.exports = class Boilerplate
         @draggedShuttle.shuttle.held = false
         @draggedShuttle = null
 
-
       #@compile() if @needsCompile
 
       if @mouse.mode is 'select'
@@ -421,6 +446,8 @@ module.exports = class Boilerplate
         @selectOffset =
           tx:@selectedB.tx - Math.min @selectedA.tx, @selectedB.tx
           ty:@selectedB.ty - Math.min @selectedA.ty, @selectedB.ty
+      else if @mouse.mode is 'paint'
+        @editStop()
 
       @mouse.mode = null
       @mouse.direction = null
@@ -564,6 +591,34 @@ module.exports = class Boilerplate
       @parsed.moveShuttle shuttle, bestState
       @draw()
 
+
+  #########################
+  # UNDO STACK            #
+  #########################
+  editStart: ->
+    @editStop()
+    @currentEdit =
+      base: new Map2
+      shuttles: new Map2
+
+  editStop: (stack = @undoStack) ->
+    if @currentEdit
+      if @currentEdit.base.size || @currentEdit.shuttles.size
+        stack.push @currentEdit
+      @currentEdit = null
+
+  _popStack: (from, to) ->
+    @editStop()
+    if (edit = from.pop())
+      @editStart()
+      edit.base.forEach (x, y, v) => @setBase x, y, v
+      edit.shuttles.forEach (x, y, v) => @setShuttle x, y, v
+    @editStop to
+    @draw()
+
+  redo: -> @_popStack @redoStack, @undoStack
+  undo: -> @_popStack @undoStack, @redoStack
+
   #########################
   # SELECTION             #
   #########################
@@ -577,9 +632,9 @@ module.exports = class Boilerplate
 
     for y in [ty...ty+th]
       for x in [tx...tx+tw]
-        if v = @parsed.grid.get x, y
+        if v = @parsed.getBase x, y
           subgrid.base.set x-tx, y-ty, v
-        if v = @parsed.modules.shuttleGrid.getValue x, y
+        if v = @parsed.getShuttle x, y
           subgrid.shuttles.set x-tx, y-ty, v
 
     #console.log subgrid
@@ -625,13 +680,14 @@ module.exports = class Boilerplate
 
     changed = no
     # We need to set all values, even the nulls.
+    @editStart()
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
         changed = true if @set mtx+x, mty+y, @selection.base.get x, y
 
         shuttleV = @selection.shuttles.get x, y
         changed = true if @set mtx+x, mty+y, shuttleV if shuttleV
-
+    @editStop()
     @draw() if changed
 
   copy: (e) ->
@@ -686,7 +742,6 @@ module.exports = class Boilerplate
   #########################
   # DRAWING               #
   #########################
-
   draw: ->
     return if @needsDraw
     @needsDraw = true
@@ -902,7 +957,7 @@ module.exports = class Boilerplate
 
     hover = {}
     if @activeTool is 'move' and !@selection and !@imminentSelect
-      v = @parsed.grid.get mtx, mty
+      v = @parsed.getBase mtx, mty
       # What is the mouse hovering over?
       hover.shuttle = @parsed.modules.shuttleGrid.getShuttle mtx, mty
       hover.engine = @parsed.modules.engineGrid.get mtx, mty
@@ -913,7 +968,7 @@ module.exports = class Boilerplate
 
 
     # Draw the grid
-    @drawCells @parsed.grid, (tx, ty, v) ->
+    @drawCells @parsed.baseGrid, (tx, ty, v) ->
       #return if v in ['positive', 'negative']
       Boilerplate.colors[v] || 'red'
 
@@ -924,7 +979,7 @@ module.exports = class Boilerplate
     @drawEngine hover.engine, t if hover.engine
 
     # Draw pressure
-    @drawCells @parsed.grid, (tx, ty, v) =>
+    @drawCells @parsed.baseGrid, (tx, ty, v) =>
       if v in ['nothing', 'thinsolid', 'thinshuttle']
         group = @parsed.modules.groups.get tx, ty, 0
         zone = @parsed.modules.zones.getZoneForGroup(group) if group
@@ -988,7 +1043,7 @@ module.exports = class Boilerplate
           @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
           @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-          @ctx.strokeStyle = if @parsed.grid.get(mtx, mty) then 'black' else 'white'
+          @ctx.strokeStyle = if @parsed.getBase(mtx, mty) then 'black' else 'white'
           @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
