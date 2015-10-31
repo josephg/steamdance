@@ -62,28 +62,35 @@ addModules = (jit) ->
   jit.modules.prevState = prevState
 
 
+letsShuttleThrough = (v) -> v in ['nothing', 'bridge']
+layerOf = (v) -> if v in ['shuttle', 'thinshuttle'] then 'shuttles' else 'base'
 
 # t=0 -> x, t=1 -> y
 lerp = (t, x, y) -> (1 - t)*x + t*y
-module.exports = class Boilerplate
-  fill = (initial_square, f) ->
-    visited = {}
-    visited["#{initial_square.x},#{initial_square.y}"] = true
-    to_explore = [initial_square]
-    hmm = (x,y) ->
-      k = "#{x},#{y}"
-      if not visited[k]
-        visited[k] = true
-        to_explore.push {x,y}
-    while n = to_explore.shift()
-      ok = f n.x, n.y, hmm
-      if ok
-        hmm n.x+1, n.y
-        hmm n.x-1, n.y
-        hmm n.x, n.y+1
-        hmm n.x, n.y-1
-    return
 
+clamp = (x, min, max) -> Math.max(Math.min(x, max), min)
+
+line = (x0, y0, x1, y1, f) ->
+  dx = Math.abs x1-x0
+  dy = Math.abs y1-y0
+  ix = if x0 < x1 then 1 else -1
+  iy = if y0 < y1 then 1 else -1
+  e = 0
+  for i in [0..dx+dy]
+    f x0, y0
+    e1 = e + dy
+    e2 = e - dx
+    if Math.abs(e1) < Math.abs(e2)
+      x0 += ix
+      e = e1
+    else
+      y0 += iy
+      e = e2
+  return
+
+
+
+module.exports = class Boilerplate
   @colors =
     bridge: 'hsl(208, 78%, 47%)'
     # bridge: 'hsl(216, 92%, 33%)'
@@ -96,31 +103,11 @@ module.exports = class Boilerplate
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
 
-  line = (x0, y0, x1, y1, f) ->
-    dx = Math.abs x1-x0
-    dy = Math.abs y1-y0
-    ix = if x0 < x1 then 1 else -1
-    iy = if y0 < y1 then 1 else -1
-    e = 0
-    for i in [0..dx+dy]
-      f x0, y0
-      e1 = e + dy
-      e2 = e - dx
-      if Math.abs(e1) < Math.abs(e2)
-        x0 += ix
-        e = e1
-      else
-        y0 += iy
-        e = e2
-    return
-
   enclosingRect = (a, b) ->
     tx: Math.min a.tx, b.tx
     ty: Math.min a.ty, b.ty
     tw: Math.abs(b.tx-a.tx) + 1
     th: Math.abs(b.ty-a.ty) + 1
-
-  clamp = (x, min, max) -> Math.max(Math.min(x, max), min)
 
   changeTool: (newTool) ->
     @activeTool = if newTool is 'solid' then null else newTool
@@ -245,7 +232,7 @@ module.exports = class Boilerplate
     tx = Math.floor(tx_); ty = Math.floor(ty_)
 
     # There's no cell for solid (null) cells.
-    v = @parsed.getBase tx, ty
+    v = @parsed.get 'base', tx, ty
     return {tx, ty, cell:null} unless v
 
     offX = tx_ - tx; offY = ty_ - ty
@@ -277,29 +264,31 @@ module.exports = class Boilerplate
     @zoomLevel = clamp @zoomLevel, 1/20, 5
     @size = Math.floor 20 * @zoomLevel
 
-  setBase: (x, y, v) ->
-    prev = @parsed.getBase x, y
-    return false if v == prev || (!v? and !prev?)
-    @currentEdit.base.set x, y, prev if @currentEdit
-    @parsed.set x, y, v
+
+  set: (x, y, bv = null, sv = null) ->
+    #throw Error "Invalid layer #{layer}" unless !v? or layer == layerOf v
+    bp = @parsed.get('base', x, y) || null
+    sp = @parsed.get('shuttles', x, y) || null
+    return false if bv == bp and sp == sv # js double equals would be perfect here
+    if @currentEdit and !@currentEdit.base.has x, y
+      @currentEdit.base.set x, y, bp
+      @currentEdit.shuttles.set x, y, sp
+
+    @parsed.set x, y, bv, sv
     return true
 
-  setShuttle: (x, y, v) ->
-    prev = @parsed.getShuttle x, y
-    return false if v == prev || (!v? and !prev?)
-    @currentEdit.shuttles.set x, y, prev if @currentEdit
-    @parsed.set x, y, v
-    return true
-
-  set: (x, y, v) ->
+  ###
+  paintValue: (x, y, v) ->
     if v in ['shuttle', 'thinshuttle']
-      # Order is important here!
-      @setShuttle(x, y, v) || @setBase(x, y, 'nothing')
+      baseV = @parsed.getBase x, y
+      ret = @set 'shuttles', x, y, v
+      ret ||= @set 'base', x, y, 'nothing' if !letsShuttleThrough baseV
     else
-      ret = @setShuttle x, y, null
-      ret ||= @setBase x, y, v
-      ret
-
+      ret = @set 'shuttles', x, y, null
+      ret ||= @set 'base', x, y, v
+    ret
+  ###
+  
   resetView: (options) ->
     @zoomLevel = 1
     @zoomBy 0
@@ -532,7 +521,13 @@ module.exports = class Boilerplate
     line fromtx, fromty, tx, ty, (x, y) =>
       #@simulator.set x, y, @activeTool
       # @activeTool is null for solid.
-      @set x, y, @activeTool
+
+      if @activeTool in ['shuttle', 'thinshuttle']
+        bv = @parsed.get 'base', x, y
+        bv = 'nothing' unless letsShuttleThrough bv
+        @set x, y, bv, @activeTool
+      else
+        @set x, y, @activeTool, null
     @draw()
 
   step: ->
@@ -602,6 +597,7 @@ module.exports = class Boilerplate
       shuttles: new Map2
 
   editStop: (stack = @undoStack) ->
+    # ... also clear the redo stack for real edits.
     if @currentEdit
       if @currentEdit.base.size || @currentEdit.shuttles.size
         stack.push @currentEdit
@@ -611,8 +607,8 @@ module.exports = class Boilerplate
     @editStop()
     if (edit = from.pop())
       @editStart()
-      edit.base.forEach (x, y, v) => @setBase x, y, v
-      edit.shuttles.forEach (x, y, v) => @setShuttle x, y, v
+      edit.base.forEach (x, y, v) =>
+        @set x, y, v, edit.shuttles.get x, y
     @editStop to
     @draw()
 
@@ -632,9 +628,9 @@ module.exports = class Boilerplate
 
     for y in [ty...ty+th]
       for x in [tx...tx+tw]
-        if v = @parsed.getBase x, y
+        if v = @parsed.get 'base', x, y
           subgrid.base.set x-tx, y-ty, v
-        if v = @parsed.getShuttle x, y
+        if v = @parsed.get 'shuttles', x, y
           subgrid.shuttles.set x-tx, y-ty, v
 
     #console.log subgrid
@@ -677,10 +673,10 @@ module.exports = class Boilerplate
     @editStart()
     for y in [0...@selection.th]
       for x in [0...@selection.tw]
-        changed = true if @set mtx+x, mty+y, @selection.base.get x, y
+        bv = @selection.base.get x, y
+        sv = @selection.shuttles.get x, y
+        changed = true if @set mtx+x, mty+y, bv, sv
 
-        shuttleV = @selection.shuttles.get x, y
-        changed = true if @set mtx+x, mty+y, shuttleV if shuttleV
     @editStop()
     @draw() if changed
 
@@ -951,7 +947,7 @@ module.exports = class Boilerplate
 
     hover = {}
     if @activeTool is 'move' and !@selection and !@imminentSelect
-      v = @parsed.getBase mtx, mty
+      v = @parsed.get 'base', mtx, mty
       # What is the mouse hovering over?
       hover.shuttle = @parsed.modules.shuttleGrid.getShuttle mtx, mty
       hover.engine = @parsed.modules.engineGrid.get mtx, mty
@@ -1037,7 +1033,7 @@ module.exports = class Boilerplate
           @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
           @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-          @ctx.strokeStyle = if @parsed.getBase(mtx, mty) then 'black' else 'white'
+          @ctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
           @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
