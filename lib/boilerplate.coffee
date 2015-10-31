@@ -15,7 +15,7 @@ KEY =
 
 BlobBounds = (blobFiller) ->
   # This calculates the bounds of all shuttles and engines.
- 
+
   blobFiller.addWatch.on (blob) ->
     # I'm lazy. I'll just dump it on the blob itself.
     left = top = 1<<30
@@ -47,7 +47,7 @@ PrevState = (stepWatch, shuttles, currentStates) ->
   stepWatch.on (time) ->
     return unless time is 'before'
     prevState.clear()
-  
+
   get: (shuttle) -> prevState.get shuttle
 
 addModules = (jit) ->
@@ -60,7 +60,7 @@ addModules = (jit) ->
 
 
   jit.modules.prevState = prevState
-  
+
 
 
 # t=0 -> x, t=1 -> y
@@ -85,8 +85,9 @@ module.exports = class Boilerplate
     return
 
   @colors =
-    bridge: 'hsl(216, 92%, 33%)'
-    thinbridge: 'hsl(203, 67%, 51%)'
+    bridge: 'hsl(208, 78%, 47%)'
+    # bridge: 'hsl(216, 92%, 33%)'
+    # thinbridge: 'hsl(203, 67%, 51%)'
     negative: 'hsl(16, 68%, 50%)'
     nothing: 'hsl(0, 0%, 100%)'
     positive: 'hsl(120, 52%, 58%)'
@@ -94,7 +95,7 @@ module.exports = class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
-  
+
   line = (x0, y0, x1, y1, f) ->
     dx = Math.abs x1-x0
     dy = Math.abs y1-y0
@@ -140,7 +141,7 @@ module.exports = class Boilerplate
         54: 'shuttle'
         55: 'thinshuttle'
         56: 'bridge'
-        57: 'thinbridge'
+        # 57: 'thinbridge'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -150,7 +151,7 @@ module.exports = class Boilerplate
         71: 'thinsolid' # g
         68: 'solid' # d
         66: 'bridge' # b
-        84: 'thinbridge' # t
+        # 84: 'thinbridge' # t
       })[kc]
       if newTool
         @selection = @selectOffset = null
@@ -214,7 +215,7 @@ module.exports = class Boilerplate
     el.addEventListener 'paste', (e) => @paste(e)
 
 
-  
+
   # ----- Utility methods for panning around the screen
 
   # given pixel x,y returns tile x,y
@@ -412,7 +413,7 @@ module.exports = class Boilerplate
         @draggedShuttle.shuttle.held = false
         @draggedShuttle = null
 
-      
+
       #@compile() if @needsCompile
 
       if @mouse.mode is 'select'
@@ -479,7 +480,7 @@ module.exports = class Boilerplate
 
   resizeTo: (width, height) ->
     #console.log "resized to #{width}x#{height}"
-    
+
     if @useWebGL
       @canvas.width = width
       @canvas.height = height
@@ -767,7 +768,7 @@ module.exports = class Boilerplate
         @ctx.lineTo px, py
 
       #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
- 
+
     visited = new Set3
     @ctx.beginPath()
     # I can't simply draw from the first edge because the shuttle might have
@@ -804,7 +805,7 @@ module.exports = class Boilerplate
 
       # End the path.
       @ctx.closePath()
- 
+
 
 
 
@@ -865,7 +866,7 @@ module.exports = class Boilerplate
       @ctx.lineWidth = border*4
       @ctx.strokeStyle = 'hsla(283, 65%, 25%, 0.5)'
       @ctx.stroke()
-    
+
     return yes
 
   drawEngine: (engine, t) ->
@@ -960,6 +961,7 @@ module.exports = class Boilerplate
     # Draw the mouse hover state
     if @mouse.tx != null
       if sa
+        # The user is dragging out a selection rectangle
         {tx, ty, tw, th} = enclosingRect sa, sb
         {px, py} = @worldToScreen tx, ty
         @ctx.fillStyle = 'rgba(0,0,255,0.5)'
@@ -968,6 +970,7 @@ module.exports = class Boilerplate
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
         @ctx.strokeRect px, py, tw*@size, th*@size
       else if @selection # mouse.tx is null when the mouse isn't in the div
+        # The user is holding a selection stamp
         @ctx.globalAlpha = 0.8
         for y in [0...@selection.th]
           for x in [0...@selection.tw]
@@ -981,7 +984,7 @@ module.exports = class Boilerplate
         @ctx.globalAlpha = 1
       else if mpx?
         if @activeTool isnt 'move'
-          # Tool hover
+          # The user is holding a paintbrush to paint with a different tool
           @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
           @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
@@ -990,4 +993,3 @@ module.exports = class Boilerplate
 
 
     return
-
