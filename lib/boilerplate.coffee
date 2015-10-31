@@ -640,37 +640,31 @@ module.exports = class Boilerplate
     #console.log subgrid
     subgrid
 
-  flip: (dir) ->
+  _transformSelection: (tw, th, copyfn) ->
     return unless @selection
 
     newSelection =
-      tw: tw = @selection.tw
-      th: th = @selection.th
+      tw: tw
+      th: th
       base: new Map2
       shuttles: new Map2
 
-    copyTo = (dest) -> (x, y, v) ->
-      x_ = if dir is 'x' then tw-1 - x else x
-      y_ = if dir is 'y' then th-1 - y else y
-      dest.set x_, y_, v
-    @selection.base.forEach copyTo newSelection.base
-    @selection.shuttles.forEach copyTo newSelection.shuttles
-
+    @selection.base.forEach copyfn newSelection.base
+    @selection.shuttles.forEach copyfn newSelection.shuttles
     @selection = newSelection
+
+
+  flip: (dir) ->
+    if @selection
+      @_transformSelection (tw = @selection.tw), (th = @selection.th), (dest) -> (x, y, v) ->
+        x_ = if dir is 'x' then tw-1 - x else x
+        y_ = if dir is 'y' then th-1 - y else y
+        dest.set x_, y_, v
 
   mirror: ->
-    return unless @selection
-
-    newSelection =
-      tw: @selection.th # Swapped! So tricky.
-      th: @selection.tw
-      base: new Map2
-      shuttles: new Map2
-
-    copyTo = (dest) -> (x, y, v) -> dest.set y, x, v
-    @selection.base.forEach copyTo newSelection.base
-    @selection.shuttles.forEach copyTo newSelection.shuttles
-    @selection = newSelection
+    # Width and height swapped! So tricky.
+    if @selection
+      @_transformSelection @selection.th, @selection.tw, (dest) -> (x, y, v) -> dest.set y, x, v
 
   stamp: ->
     throw new Error 'tried to stamp without a selection' unless @selection
