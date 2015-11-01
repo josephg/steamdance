@@ -55,7 +55,7 @@ running = false
 
 timer = null
 setRunning = (v) ->
-  document.getElementById('panel').className = if v then 'running' else 'stopped'
+  document.getElementById('playpanel').className = if v then 'running' else 'stopped'
   if running != v
     running = v
     if v
