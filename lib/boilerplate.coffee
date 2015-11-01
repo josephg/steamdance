@@ -5,10 +5,11 @@ UP=0; RIGHT=1; DOWN=2; LEFT=3
 {DIRS} = util
 
 KEY =
-  up: 1
-  right: 2
-  down: 4
-  left: 8
+  up: 1<<0
+  right: 1<<1
+  down: 1<<2
+  left: 1<<3
+  shift: 1<<4
 
 
 # We have some additional modules to chain to the jit.
@@ -149,16 +150,14 @@ module.exports = class Boilerplate
         @lastKeyScroll = Date.now()
 
       switch kc
-        when 37 # left
-          @keysPressed |= KEY.left
-        when 39 # right
-          @keysPressed |= KEY.right
-        when 38 # up
-          @keysPressed |= KEY.up
-        when 40 # down
-          @keysPressed |= KEY.down
+        # left, right, up, down.
+        when 37 then @keysPressed |= KEY.left
+        when 39 then @keysPressed |= KEY.right
+        when 38 then @keysPressed |= KEY.up
+        when 40 then @keysPressed |= KEY.down
 
         when 16 # shift
+          @keysPressed |= KEY.shift
           @imminentSelect = true
         when 27,192 # esc
           if @selection
@@ -173,6 +172,16 @@ module.exports = class Boilerplate
         when 77 # m
           @mirror() if @selection
 
+        when 187, 189 # plus
+          # debugger
+          oldsize = @size
+          amt = Math.max(1, @size/8)/20
+          amt *= -1 if kc is 189 # minus key
+          amt *= 3 if @keysPressed & KEY.shift
+          @zoomBy amt
+          @scrollX += @canvas.width/oldsize/2 - @canvas.width/@size/2
+          @scrollY += @canvas.height/oldsize/2 - @canvas.height/@size/2
+
       if (e.ctrlKey || e.metaKey) and kc is 90 # ctrl+z or cmd+z
         if e.shiftKey then @redo() else @undo()
       else if e.ctrlKey and kc is 89 # ctrl+y for windows
@@ -186,17 +195,16 @@ module.exports = class Boilerplate
 
       switch e.keyCode
         when 16 # shift
+          @keysPressed &= ~KEY.shift
           @imminentSelect = false
           @draw()
 
-        when 37 # left
-          @keysPressed &= ~KEY.left
-        when 39 # right
-          @keysPressed &= ~KEY.right
-        when 38 # up
-          @keysPressed &= ~KEY.up
-        when 40 # down
-          @keysPressed &= ~KEY.down
+        # left, right, up, down.
+        when 37 then @keysPressed &= ~KEY.left
+        when 39 then @keysPressed &= ~KEY.right
+        when 38 then @keysPressed &= ~KEY.up
+        when 40 then @keysPressed &= ~KEY.down
+
 
     el.addEventListener 'blur', =>
       @mouse.mode = null
@@ -260,6 +268,7 @@ module.exports = class Boilerplate
     py: ty * @size - Math.floor(@scrollY * @size)
 
   zoomBy: (diff) ->
+    # console.log 'zoomBy', diff
     @zoomLevel += diff
     @zoomLevel = clamp @zoomLevel, 1/20, 5
     @size = Math.floor 20 * @zoomLevel
@@ -288,7 +297,7 @@ module.exports = class Boilerplate
       ret ||= @set 'base', x, y, v
     ret
   ###
-  
+
   resetView: (options) ->
     @zoomLevel = 1
     @zoomBy 0
@@ -740,10 +749,11 @@ module.exports = class Boilerplate
 
       # This is a weird place to do keyboard scrolling, but if we do it in
       # step() it'll only happen once every few hundred ms.
-      if @keysPressed && @canScroll
+      if (@keysPressed & 0xf) && @canScroll
         #console.log @keysPressed
         now = Date.now()
-        amt = 0.5 * Math.min now - @lastKeyScroll, 300
+        amt = 0.6 * Math.min now - @lastKeyScroll, 300
+        amt *= 3 if @keysPressed & KEY.shift
 
         @scrollY -= amt/@size if @keysPressed & KEY.up
         @scrollX += amt/@size if @keysPressed & KEY.right
