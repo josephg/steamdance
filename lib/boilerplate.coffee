@@ -286,18 +286,6 @@ module.exports = class Boilerplate
     @parsed.set x, y, bv, sv
     return true
 
-  ###
-  paintValue: (x, y, v) ->
-    if v in ['shuttle', 'thinshuttle']
-      baseV = @parsed.getBase x, y
-      ret = @set 'shuttles', x, y, v
-      ret ||= @set 'base', x, y, 'nothing' if !letsShuttleThrough baseV
-    else
-      ret = @set 'shuttles', x, y, null
-      ret ||= @set 'base', x, y, v
-    ret
-  ###
-
   resetView: (options) ->
     @zoomLevel = 1
     @zoomBy 0
@@ -364,44 +352,14 @@ module.exports = class Boilerplate
 
     # ----- Event handlers
 
-    updateMousePos = (e) =>
-      @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
-      @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
-      @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
-      {tx, ty, tc} = @screenToWorldCell @mouse.x, @mouse.y
-
-      if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
-        @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
-        return yes
-      else
-        return no
-
     @el.onmousemove = (e) =>
       @imminentSelect = !!e.shiftKey
       # If the mouse is released / pressed while not in the box, handle that correctly
-
       @el.onmousedown e if e.button && !@mouse.mode
-
-      if updateMousePos e
-        #if @mouse.mode is 'paint' and e.shiftKey
-        #  switch @mouse.direction
-        #    when 'x' then {ty} = @mouse
-        #    when 'y' then {tx} = @mouse
-        #    when null
-        #      @mouse.direction = if tx != @mouse.tx then 'x' else 'y'
-
-
-        switch @mouse.mode
-          when 'paint' then @paint()
-          when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
-
-        @dragShuttleTo @mouse.tx, @mouse.ty if @draggedShuttle?
-
-        @draw()
-      @updateCursor()
+      @cursorMoved() if @updateMousePos e
 
     @el.onmousedown = (e) =>
-      updateMousePos e
+      @updateMousePos e
 
       if e.shiftKey
         @mouse.mode = 'select'
@@ -470,8 +428,9 @@ module.exports = class Boilerplate
     @el.onwheel = (e) =>
       #console.log e.wheelDeltaX, e.deltaX, e.deltaMode
       return unless @canScroll
-      updateMousePos e
-      if e.shiftKey
+      @updateMousePos e
+
+      if e.shiftKey or e.ctrlKey
         oldsize = @size
         @zoomBy -e.deltaY / 400
 
@@ -482,8 +441,30 @@ module.exports = class Boilerplate
         @scrollY += e.deltaY / @size
       {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
       e.preventDefault()
-      @updateCursor()
-      @draw()
+      @cursorMoved()
+
+  updateMousePos: (e) ->
+    @mouse.from = {tx: @mouse.tx, ty: @mouse.ty}
+    if e
+      @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
+      @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
+    {tx, ty, tc} = @screenToWorldCell @mouse.x, @mouse.y
+
+    if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
+      @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
+      return yes
+    else
+      return no
+
+  cursorMoved: ->
+    switch @mouse.mode
+      when 'paint' then @paint()
+      when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
+
+    @dragShuttleTo @mouse.tx, @mouse.ty if @draggedShuttle?
+
+    @draw()
+    @updateCursor()
 
   updateCursor: ->
     @canvas.style.cursor =
@@ -761,6 +742,9 @@ module.exports = class Boilerplate
         @scrollX -= amt/@size if @keysPressed & KEY.left
 
         @lastKeyScroll = now
+
+        if @updateMousePos()
+          @cursorMoved()
 
       @drawFrame()
 
