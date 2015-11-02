@@ -75,9 +75,13 @@ a {
   color: hsl(42, 95%, 69%);
   font-size: 1.5em;
   margin: 7px;
+  display: inline-block;
+  min-width: 1em;
+  text-align: center;
+  vertical-align: top; /* needed because play button is tall */
 }
-
-#playpanel.stopped #playpause { color: hsl(0, 0%, 78%); }
+/*#playpanel.running #play { color: hsl(0, 0%, 78%); }*/
+/*#playpanel.stopped #pause { color: white; }*/
 #playpanel.running #step { color: gray; }
 
 #componentPanel {
@@ -91,9 +95,7 @@ a {
   padding: 0;
 }
 
-#componentPanel:hover {
-  top: 0%;
-}
+#componentPanel:hover { top: 0%; }
 
 #componentPanel > .modulelist {
   height: 100%;
@@ -101,13 +103,21 @@ a {
 }
 
 #componentPanel > .disclosure {
-  color: hsl(42, 95%, 69%);
+  /*color: hsl(42, 95%, 69%);*/
+  color: white;
   position: absolute;
   right: 0;
   top: 100%;
   padding: 5px;
   width: 50%;
   text-align: right;
+  transition: color 0.6s;
+  background-color: hsla(184, 49%, 7%, 0.5);
+}
+
+#componentPanel:hover > .disclosure {
+  /*color: white;*/
+  color: hsl(42, 95%, 69%);
 }
 
 #componentPanel .module {
@@ -122,7 +132,8 @@ a {
 <div class='overlay topleft'>
   <span>local/ #</span><input type='text' id='worldlabel' list='worldlist'>
   <div id='playpanel'>
-    <span id="playpause" title="play pause (space bar)">►</span>
+    <span id="playpause" title="play (space bar)">►</span>
+    <!-- <span id="pause" title="pause (space bar)">||</span> -->
     <span id="step" title="step (enter)">➸</span>
   </div>
 </div>

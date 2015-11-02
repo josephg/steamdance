@@ -59,11 +59,14 @@ setRunning = (v) ->
   if running != v
     running = v
     if v
+      playpausebutton.textContent = '||'
       timer = setInterval =>
         bp.step()
       , 200
     else
+      playpausebutton.textContent = '►'
       clearInterval timer
+
 
 setRunning true
 
@@ -125,6 +128,7 @@ window.onresize = ->
 
 playpausebutton.onclick = (e) ->
   setRunning !running
+
 stepbutton.onclick = (e) ->
   bp.step()
 
