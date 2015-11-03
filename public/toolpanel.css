@@ -12,6 +12,7 @@
   -ms-user-select: none;
   cursor: default;
   /*background-color: hsl(184, 49%, 7%);*/
+  pointer-events: none;
 }
 
 .toolpanel > div {
@@ -22,6 +23,7 @@
   text-transform: uppercase;
   border-left: 2px hsl(0, 100%, 50%);
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .toolpanel > div:not(:first-child) {
