@@ -179,8 +179,8 @@ module.exports = class Boilerplate
           amt *= -1 if kc is 189 # minus key
           amt *= 3 if @keysPressed & KEY.shift
           @zoomBy amt
-          @scrollX += @canvas.width/oldsize/2 - @canvas.width/@size/2
-          @scrollY += @canvas.height/oldsize/2 - @canvas.height/@size/2
+          @scrollX += @width/oldsize/2 - @width/@size/2
+          @scrollY += @height/oldsize/2 - @height/@size/2
 
       if (e.ctrlKey || e.metaKey) and kc is 90 # ctrl+z or cmd+z
         if e.shiftKey then @redo() else @undo()
@@ -484,18 +484,18 @@ module.exports = class Boilerplate
           else
             'crosshair'
 
-  resizeTo: (width, height) ->
+  resizeTo: (@width, @height) ->
     #console.log "resized to #{width}x#{height}"
 
     if @useWebGL
-      @canvas.width = width
-      @canvas.height = height
-      @ctx.resizeTo width, height
+      @canvas.width = @width
+      @canvas.height = @height
+      @ctx.resizeTo @width, @height
     else
-      @canvas.width = width * devicePixelRatio
-      @canvas.height = height * devicePixelRatio
-      @canvas.style.width = width + 'px'
-      @canvas.style.height = height + 'px'
+      @canvas.width = @width * devicePixelRatio
+      @canvas.height = @height * devicePixelRatio
+      @canvas.style.width = @width + 'px'
+      @canvas.style.height = @height + 'px'
       @ctx = @canvas.getContext '2d'
       @ctx.scale devicePixelRatio, devicePixelRatio
 
@@ -752,7 +752,7 @@ module.exports = class Boilerplate
 
   drawFrame: ->
     @ctx.fillStyle = Boilerplate.colors['solid']
-    @ctx.fillRect 0, 0, @canvas.width, @canvas.height
+    @ctx.fillRect 0, 0, @width, @height
 
     @drawGrid()
 
@@ -768,7 +768,7 @@ module.exports = class Boilerplate
     {dx, dy} = offset
     points.forEach (tx, ty, v) =>
       {px, py} = @worldToScreen tx+dx, ty+dy
-      return unless px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+      return unless px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
       if typeof override is 'function'
         return unless (style = override tx, ty, v)
         @ctx.fillStyle = style
@@ -859,8 +859,8 @@ module.exports = class Boilerplate
     bounds = shuttle.bounds
     topLeft = @worldToScreen bounds.left+sx, bounds.top+sy
     botRight = @worldToScreen bounds.right+sx+1, bounds.bottom+sy+1
-    return no if topLeft.px > @canvas.width or
-      topLeft.py > @canvas.height or
+    return no if topLeft.px > @width or
+      topLeft.py > @height or
       botRight.px < 0 or
       botRight.py < 0
 
@@ -968,7 +968,7 @@ module.exports = class Boilerplate
         group = @parsed.modules.groups.get tx, ty, 0
         zone = @parsed.modules.zones.getZoneForGroup(group) if group
         if zone?.pressure
-          return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.15)'
+          return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
         else
           return null
 
@@ -1014,7 +1014,7 @@ module.exports = class Boilerplate
         for y in [0...@selection.th]
           for x in [0...@selection.tw]
             {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
-            if px+@size >= 0 and px < @canvas.width and py+@size >= 0 and py < @canvas.height
+            if px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
               v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
               @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
               @ctx.fillRect px, py, @size, @size
