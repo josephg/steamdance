@@ -187,7 +187,7 @@ module.exports = class Boilerplate
         e.preventDefault()
       else if e.ctrlKey and kc is 89 # ctrl+y for windows
         @redo()
-        e.preventDefault();
+        e.preventDefault()
 
       @draw()
 
@@ -298,6 +298,8 @@ module.exports = class Boilerplate
   setJSONGrid: (json) ->
     @parsed = Jit json
     addModules @parsed
+    @currentEdit = null
+    @undoStack.length = @redoStack.length = 0
     @draw()
 
   getJSONGrid: -> @parsed.toJSON()
@@ -307,6 +309,11 @@ module.exports = class Boilerplate
     @lastKeyScroll = 0 # epoch time
 
     @activeTool = 'move'
+
+    # A list of patches
+    @currentEdit = null
+    @undoStack = []
+    @redoStack = []
 
     @setJSONGrid options.grid
 
@@ -337,10 +344,6 @@ module.exports = class Boilerplate
 
     #@el.onresize = -> console.log 'yo'
 
-    # A list of patches
-    @currentEdit = null
-    @undoStack = []
-    @redoStack = []
 
     @mouse = {x:null,y:null, mode:null}
     #@placing = 'nothing'
