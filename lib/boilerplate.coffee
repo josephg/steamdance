@@ -857,9 +857,9 @@ module.exports = class Boilerplate
 
 
   drawShuttle: (shuttle, t, isHovered) ->
-    t = 1 if shuttle is @draggedShuttle?.shuttle
     # First get bounds - we might not even be able to display the shuttle.
-    if (prevState = @parsed.modules.prevState.get shuttle)
+    if (prevState = @parsed.modules.prevState.get shuttle) and
+        shuttle isnt @draggedShuttle?.shuttle
       sx = lerp t, prevState.dx, shuttle.currentState.dx
       sy = lerp t, prevState.dy, shuttle.currentState.dy
     else
