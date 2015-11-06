@@ -184,8 +184,10 @@ module.exports = class Boilerplate
 
       if (e.ctrlKey || e.metaKey) and kc is 90 # ctrl+z or cmd+z
         if e.shiftKey then @redo() else @undo()
+        e.preventDefault()
       else if e.ctrlKey and kc is 89 # ctrl+y for windows
         @redo()
+        e.preventDefault();
 
       @draw()
 
