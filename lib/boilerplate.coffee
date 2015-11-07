@@ -1,5 +1,5 @@
 {Jit, Map2, Map3, Set2, Set3, util, Watcher} = require 'boilerplate-jit'
-{WebGLContext} = require './gl'
+# {WebGLContext} = require './gl'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
 {DIRS} = util
@@ -144,7 +144,7 @@ module.exports = class Boilerplate
         # 84: 'thinbridge' # t
       })[kc]
       if newTool
-        @selection = @selectOffset = null
+        @clearSelection()
         @changeTool newTool
 
       if 37 <= e.keyCode <= 40
@@ -162,7 +162,7 @@ module.exports = class Boilerplate
           @imminentSelect = true
         when 27,192 # esc
           if @selection
-            @selection = @selectOffset = null
+            @clearSelection()
           else
             @changeTool 'move'
 
@@ -369,7 +369,7 @@ module.exports = class Boilerplate
 
       if e.shiftKey
         @mouse.mode = 'select'
-        @selection = @selectOffset = null
+        @clearSelection()
         @selectedA = @screenToWorld @mouse.x, @mouse.y
         @selectedB = @selectedA
       else if @selection
@@ -408,15 +408,18 @@ module.exports = class Boilerplate
         @selectOffset =
           tx:@selectedB.tx - Math.min @selectedA.tx, @selectedB.tx
           ty:@selectedB.ty - Math.min @selectedA.ty, @selectedB.ty
+        @onSelection? @selection
       else if @mouse.mode is 'paint'
         @editStop()
+        # Its dangerous firing this event here - it should be in a nextTick or
+        # something, but I'm lazy. (Sorry future me)
+        @onEditFinish?()
 
       @mouse.mode = null
       @mouse.direction = null
       @imminentSelect = false
       @updateCursor()
       @draw()
-      @onEditFinish?()
 
     @el.onmouseout = (e) =>
       # Pretend the mouse just went up at the edge of the boilerplate instance then went away.
@@ -647,7 +650,6 @@ module.exports = class Boilerplate
     @selection.shuttles.forEach copyfn newSelection.shuttles
     @selection = newSelection
 
-
   flip: (dir) ->
     if @selection
       @_transformSelection (tw = @selection.tw), (th = @selection.th), (dest) -> (x, y, v) ->
@@ -678,6 +680,11 @@ module.exports = class Boilerplate
     @editStop()
     @draw() if changed
 
+  clearSelection: ->
+    if @selection
+      @selection = @selectOffset = null
+      @onSelectionClear?()
+
   copy: (e) ->
     #console.log 'copy'
     if @selection
@@ -691,40 +698,21 @@ module.exports = class Boilerplate
 
   paste: (e) ->
     #console.log 'paste'
-    data = e.clipboardData.getData 'text'
-    if data
+    json = e.clipboardData.getData 'text'
+    if json
       try
-        json = JSON.parse data
         @selection =
           base: new Map2
           shuttles: new Map2
-
-        tw = json.tw or 0
-        th = json.th or 0
-        if json.base
-          # New style
-          for k, v of json.base
-            {x,y} = util.parseXY k
-            tw = x+1 if x >= tw
-            th = y+1 if y >= th
-            @selection.base.set x, y, v
-          for k, v of json.shuttles
-            {x,y} = util.parseXY k
-            @selection.shuttles.set x, y, v
-        else
-          # Old style
-          for k, v of json when k not in ['tw', 'th']
-            {x,y} = util.parseXY k
-            tw = x+1 if x >= tw
-            th = y+1 if y >= th
-            if v in ['shuttle', 'thinshuttle']
-              @selection.base.set x, y, 'nothing'
-              @selection.shuttles.set x, y, v
-            else
-              @selection.base.set x, y, v
-
+        {tw, th} = util.deserialize json, yes, (x, y, bv, sv) =>
+          @selection.base.set x, y, bv
+          @selection.shuttles.set x, y, sv if sv?
         @selection.tw = tw; @selection.th = th
         @selectOffset = {tx:0, ty:0}
+        @onSelection? @selection
+      catch e
+        @selection = null
+        console.error 'Error parsing data in clipboard:', e.stack
 
 
   #########################
