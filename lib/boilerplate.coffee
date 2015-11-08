@@ -365,6 +365,7 @@ module.exports = class Boilerplate
       # If the mouse is released / pressed while not in the box, handle that correctly
       @el.onmousedown e if e.button && !@mouse.mode
       @cursorMoved() if @updateMousePos e
+      @draw() if @mouse and @parsed.get 'base', @mouse.tx, @mouse.ty
 
     @el.onmousedown = (e) =>
       @updateMousePos e

@@ -62,7 +62,7 @@ exports.addModule = addModule = (data) ->
   width = canvas.clientWidth; height = canvas.clientHeight
   size = fl Math.min width / tw, height / th
   # width = size * tw; height = size * th
-  console.log canvas.clientWidth, canvas.clientHeight, width, height
+  # console.log canvas.clientWidth, canvas.clientHeight, width, height
   canvas.width = width * devicePixelRatio
   canvas.height = height * devicePixelRatio
 
@@ -76,12 +76,12 @@ exports.addModule = addModule = (data) ->
   ctx.strokeRect 1, 1, size*tw - 2, size*th - 2
 
   moduleElem.onclick = ->
-    console.log 'elem click'
+    # console.log 'elem click'
     selectModule moduleElem
     bp.setSelection data
 
   rm.onclick = (e) ->
-    console.log 'e click'
+    # console.log 'e click'
     if selectedModule is moduleElem
       selectModule null
       addModElem.style.display = 'inherit'
@@ -91,7 +91,7 @@ exports.addModule = addModule = (data) ->
     elementForModuleData.delete data
     idx = moduleData.indexOf data
     moduleData.splice idx, 1
-    console.log moduleData
+    # console.log moduleData
     e.stopPropagation()
     save()
 
@@ -107,8 +107,7 @@ exports.load = (bp) ->
     addModule util.deserializeRegion raw
 
   bp.onSelection = (data) ->
-    console.log 'selection'
-    # console.log 'selection', data, JSON.stringify toJSON data
+    # console.log 'selection'
     # document.getElementById('addmod').style.display = 'none'
     # addModElem.style.removeProperty 'height'
     if (e = elementForModuleData.get data)
@@ -119,7 +118,7 @@ exports.load = (bp) ->
     # drawTo data, document.getElementById('hackoverlay')
 
   do bp.onSelectionClear = ->
-    console.log 'selection clear'
+    # console.log 'selection clear'
     # addModElem.style.height = '0'
     selectModule null
 
