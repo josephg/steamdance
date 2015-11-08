@@ -85,10 +85,10 @@ a {
 #playpanel.running #step { color: gray; }
 
 #componentPanel {
-  top: -50%;
+  top: calc(-50% - 1px); /* No idea why the extra pixel is needed, but it is */
   right: 0;
   width: 300px;
-  height: calc(50% + 1em + 2 * 5px);
+  /*height: calc(50% + 1em + 2 * 5px);*/
   height: 50%;
   transition: top 0.6s;
   background-color: rgba(66, 66, 66, 0.61);
@@ -97,7 +97,7 @@ a {
 
 #componentPanel:hover { top: 0%; }
 
-#componentPanel > .modulelist {
+#moduleList {
   height: 100%;
   overflow-y: scroll;
 }
@@ -123,12 +123,28 @@ a {
 #componentPanel .module {
   width: 100%;
   height: 300px; /* Same as width of #componentPanel */
-  padding: 10px;
+  padding: 10px 10px 0 10px;
+}
+
+#componentPanel .module:last-child {
+  padding-bottom: 10px;
+}
+
+.module > canvas {
+  width: 100%;
+  height: 100%;
+  background-color: hsla(184, 47%, 3%, 0.47);
+}
+
+.module.selected > canvas {
+  background-color: rgba(19, 65, 70, 0.82);
 }
 
 #addmod {
-  font-size: 270px;
+  font-size: 240px;
   text-align: center;
+  background-color: hsla(184, 47%, 3%, 0.47);
+  transition: height 0.6s;
 }
 </style>
 
@@ -144,13 +160,8 @@ a {
 </div>
 
 <div class='overlay' id='componentPanel'>
-  <div class='modulelist'>
-    <div class='module' id='addmod'>
-      +
-    </div>
-    <div class='module'>
-      <div style="background-color: red; width: 100%; height: 100%;"></div>
-    </div>
+  <div id='moduleList'>
+    <div class='module' id='addmod'>+</div>
   </div>
   <div class='disclosure'>▼ Modules</div>
 </div>
@@ -158,6 +169,18 @@ a {
 <div class='overlay botright'>
   <span><a href="https://github.com/josephg/boilerplate">github</a></span>
 </div>
+<!--
+<style>
+#hackoverlay {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  border: 2px solid red;
+  width: 300px;
+  height: 300px;
+}
+</style>
+<canvas id=hackoverlay></canvas> -->
 
 <div class="toolpanel">
   <div id="move">Move

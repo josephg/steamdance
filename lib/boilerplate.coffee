@@ -1,4 +1,5 @@
 {Jit, Map2, Map3, Set2, Set3, util, Watcher} = require 'boilerplate-jit'
+assert = require 'assert'
 # {WebGLContext} = require './gl'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
@@ -685,6 +686,14 @@ module.exports = class Boilerplate
       @selection = @selectOffset = null
       @onSelectionClear?()
 
+  setSelection: (data) ->
+    @clearSelection()
+    return if !data?
+    assert data.tw?
+    @selection = data
+    @selectOffset = {tx:0, ty:0}
+    @onSelection? @selection
+
   copy: (e) ->
     #console.log 'copy'
     if @selection
@@ -701,13 +710,7 @@ module.exports = class Boilerplate
     json = e.clipboardData.getData 'text'
     if json
       try
-        @selection =
-          base: new Map2
-          shuttles: new Map2
-        {tw, th} = util.deserialize json, yes, (x, y, bv, sv) =>
-          @selection.base.set x, y, bv
-          @selection.shuttles.set x, y, sv if sv?
-        @selection.tw = tw; @selection.th = th
+        @selection = util.deserializeRegion json
         @selectOffset = {tx:0, ty:0}
         @onSelection? @selection
       catch e

@@ -1,4 +1,5 @@
 Boilerplate = require '../lib/boilerplate.coffee'
+modules = require './modules'
 
 isEmpty = (obj) ->
   return false for k of obj
@@ -161,3 +162,5 @@ window.backup = ->
     data[k] = v
 
   data
+
+modules.load bp
