@@ -4,6 +4,7 @@ assert = require 'assert'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
 {DIRS} = util
+fl = Math.floor
 
 KEY =
   up: 1<<0
@@ -245,7 +246,7 @@ module.exports = class Boilerplate
 
     # There's no cell for solid (null) cells.
     v = @parsed.get 'base', tx, ty
-    return {tx, ty, cell:null} unless v
+    return {tx, ty, tc:null} unless v
 
     offX = tx_ - tx; offY = ty_ - ty
 
@@ -939,28 +940,55 @@ module.exports = class Boilerplate
     mx = @mouse.x; my = @mouse.y
     {tx:mtx, ty:mty, tc:mtc} = @screenToWorldCell mx, my
 
-    hover = {}
-    if @activeTool is 'move' and !@selection and !@imminentSelect
-      v = @parsed.get 'base', mtx, mty
-      # What is the mouse hovering over?
-      hover.shuttle = @parsed.modules.shuttleGrid.getShuttle mtx, mty
-      hover.engine = @parsed.modules.engineGrid.get mtx, mty
-      hover.group = v and @parsed.modules.groups.get mtx, mty, mtc
-      hover.zone = if hover.group then @parsed.modules.zones.getZoneForGroup hover.group
-
-    #console.log hover if hover
-
-
     # Draw the grid
     @drawCells @parsed.baseGrid, (tx, ty, v) ->
       #return if v in ['positive', 'negative']
       Boilerplate.colors[v] || 'red'
 
-    # Draw the engines
-    #@parsed.modules.engines.forEach (engine) =>
-    #  @drawEngine engine, t
+    hover = {}
+    if @activeTool is 'move' and !@selection and !@imminentSelect
+      bv = @parsed.get 'base', mtx, mty
+      sv = @parsed.get 'shuttles', mtx, mty
+      # What is the mouse hovering over? For better or worse, this relies
+      # heavily uses the parser internals.
+      modules = @parsed.modules
 
-    @drawEngine hover.engine, t if hover.engine
+      # hover.engines = new Set
+      # hover.shuttles = new Set
+      # hover.points = new Set
+      if (shuttle = modules.shuttleGrid.getShuttle mtx, mty)
+        hover.shuttle = shuttle
+      else if (engine = modules.engineGrid.get mtx, mty)
+        @drawEngine engine, t
+
+      if sv != 'shuttle' and bv and (group = modules.groups.get mtx, mty, mtc)
+        # All the cells we'll highlight. Not worrying about special bridge
+        # highlights for now.
+        r0 = modules.regions.get group, modules.currentStates.map
+
+        hover.points = new Set2
+        engines = new Set
+        add = (g) ->
+          g.points.forEach (x, y, c, v) -> hover.points.add x, y
+
+        util.fillGraph r0, (r, hmm) ->
+          r.groups.forEach add
+          r.engines.forEach (e) -> engines.add e
+          r.edges.forEach (group) ->
+            assert group.used
+            r = modules.regions.get group, modules.currentStates.map
+            hmm r if r
+        # console.log region
+
+        hover.pressure = 0
+        engines.forEach (e) =>
+          hover.pressure += e.pressure
+          @drawEngine e, t
+
+        # Basically we want to get all the points in all connected regions.
+      # hover.zone = if hover.group then @parsed.modules.zones.getZoneForGroup hover.group
+
+    #console.log hover if hover
 
     # Draw pressure
     @drawCells @parsed.baseGrid, (tx, ty, v) =>
@@ -976,7 +1004,31 @@ module.exports = class Boilerplate
     @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t, hover.shuttle == shuttle
 
-    @drawCells hover.group.points, 'rgba(100,100,100,0.3)' if hover.group and !hover.engine and !hover.shuttle
+    if hover.points then @drawCells hover.points, 'rgba(100,100,100,0.3)'
+
+    if hover.pressure
+      # {px, py} = @worldToScreen mtx, mty
+      px = mx; py = my + 20
+      size = 23
+
+      fontsize = size
+      text = "#{hover.pressure}"
+      while fontsize > 3
+        @ctx.font = "#{fl fontsize}px sans-serif"
+        break if (@ctx.measureText text).width < size - 3
+        fontsize--
+
+      @ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+      @ctx.fillRect px, py, size, size
+
+      @ctx.fillStyle = if hover.pressure < 0
+        Boilerplate.colors['negative']
+      else
+        Boilerplate.colors['positive']
+      @ctx.textBaseline = 'middle'
+      @ctx.textAlign = 'center'
+      @ctx.fillText text, px + size/2, py + size/2
+
 
 
 

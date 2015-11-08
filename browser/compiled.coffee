@@ -95,6 +95,7 @@ bp.onEditFinish = save = ->
   else
     # console.log 'saving', worldName
     localStorage.setItem "worldv2 #{worldName}", JSON.stringify grid
+
 setInterval save, 15000
 
 window.addEventListener 'keypress', (e) ->
