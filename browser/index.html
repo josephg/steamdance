@@ -124,6 +124,7 @@ a {
   width: 100%;
   height: 300px; /* Same as width of #componentPanel */
   padding: 10px 10px 0 10px;
+  position: relative;
 }
 
 #componentPanel .module:last-child {
@@ -138,6 +139,16 @@ a {
 
 .module.selected > canvas {
   background-color: rgba(19, 65, 70, 0.82);
+}
+
+.module > .rm {
+  font-size: 30px;
+  color: hsl(42, 95%, 69%);
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  text-rendering: geometricPrecision;
+  background-color: rgba(15, 21, 22, 0.51);
 }
 
 #addmod {

@@ -21,15 +21,21 @@ selectModule = (m) ->
 addModElem.style.display = 'none'
 
 drawTo = (data, size, ctx) ->
-  # ctx.fillStyle = Boilerplate.colors['solid']
-  # ctx.fillRect 0, 0, data.tw * size, data.th * size
-
   data.base.forEach (x, y, v) ->
     px = x * size; py = y * size
     v = data.shuttles.get(x, y) or v
     ctx.fillStyle = Boilerplate.colors[v]
-    console.log v, Boilerplate.colors[v]
     ctx.fillRect px, py, size, size
+
+save = ->
+  json = moduleData.map (data) ->
+    result = {base:{}, shuttles:{}}
+    result.tw = data.tw; result.th = data.th
+    data.base.forEach (x, y, v) -> result.base[[x,y]] = v
+    data.shuttles.forEach (x, y, v) -> result.shuttles[[x,y]] = v
+    return result
+
+  localStorage.setItem 'bp modules', JSON.stringify json
 
 exports.addModule = addModule = (data) ->
   container = document.getElementById 'moduleList'
@@ -43,6 +49,13 @@ exports.addModule = addModule = (data) ->
 
   canvas = document.createElement 'canvas'
   moduleElem.appendChild canvas
+
+  # I did all this with a pseudo-selector (:after) but it didn't work because
+  # you can't register onclick on them. Poo.
+  rm = document.createElement 'div'
+  rm.classList.add 'rm'
+  rm.textContent = '\u232B'
+  moduleElem.appendChild rm
 
   throw Error 'need w/h' unless data.tw?
   {tw, th} = data
@@ -63,8 +76,26 @@ exports.addModule = addModule = (data) ->
   ctx.strokeRect 1, 1, size*tw - 2, size*th - 2
 
   moduleElem.onclick = ->
+    console.log 'elem click'
     selectModule moduleElem
     bp.setSelection data
+
+  rm.onclick = (e) ->
+    console.log 'e click'
+    if selectedModule is moduleElem
+      selectModule null
+      addModElem.style.display = 'inherit'
+    delete rm.onclick
+    delete moduleElem.onclick
+    container.removeChild moduleElem
+    elementForModuleData.delete data
+    idx = moduleData.indexOf data
+    moduleData.splice idx, 1
+    console.log moduleData
+    e.stopPropagation()
+    save()
+
+  save()
 
   return moduleElem
 
@@ -96,7 +127,3 @@ exports.load = (bp) ->
     if (s = bp.selection)
       m = addModule s
       selectModule m
-
-# addModule util.deserializeRegion  {"tw":4,"th":5,"base":{"1,1":"thinsolid","1,2":"bridge","1,3":"positive","2,1":"thinsolid","2,2":"bridge","2,3":"negative","3,1":"thinsolid","3,2":"thinsolid"},"shuttles":{"1,2":"shuttle"}}
-
-# addModule util.deserializeRegion {"tw":5,"th":3,"base":{"1,1":"positive","2,1":"nothing","3,1":"nothing"},"shuttles":{"3,1":"shuttle"}}
