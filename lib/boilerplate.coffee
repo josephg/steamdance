@@ -962,31 +962,14 @@ module.exports = class Boilerplate
       else if (engine = modules.engineGrid.get mtx, mty)
         @drawEngine engine, t
 
-      if sv != 'shuttle' and bv and (group = modules.groups.get mtx, mty, mtc)
-        # All the cells we'll highlight. Not worrying about special bridge
-        # highlights for now.
-        r0 = modules.regions.get group, modules.currentStates.map
-
-        hover.points = new Set2
-        engines = new Set
-        add = (g) ->
-          g.points.forEach (x, y, c, v) -> hover.points.add x, y
-
-        util.fillGraph r0, (r, hmm) ->
-          r.groups.forEach add
-          r.engines.forEach (e) -> engines.add e
-          r.edges.forEach (group) ->
-            assert group.used
-            r = modules.regions.get group, modules.currentStates.map
-            hmm r if r
-        # console.log region
-
+      if sv != 'shuttle' and bv and
+            (contents = @parsed.getZoneContents mtx, mty, mtc)
+        hover.points = contents.points
         hover.pressure = 0
-        engines.forEach (e) =>
+        contents.engines.forEach (e) =>
           hover.pressure += e.pressure
           @drawEngine e, t
 
-        # Basically we want to get all the points in all connected regions.
       # hover.zone = if hover.group then @parsed.modules.zones.getZoneForGroup hover.group
 
     #console.log hover if hover
