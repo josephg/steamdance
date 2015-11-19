@@ -92,9 +92,7 @@ line = (x0, y0, x1, y1, f) ->
       e = e2
   return
 
-
-
-module.exports = class Boilerplate
+global.Boilerplate = module.exports = class Boilerplate
   @colors =
     bridge: 'hsl(208, 78%, 47%)'
     # bridge: 'hsl(216, 92%, 33%)'
@@ -109,6 +107,10 @@ module.exports = class Boilerplate
     interface: 'hsl(44, 87%, 52%)'
     ribbon: 'hotpink'
     ribbonbridge: 'pink'
+  # These colors are pretty ugly but they'll do for now. Maybe just 1 color but
+  # with numbers drawn on the cell?
+  @colors["ins#{i}"] = "hsl(188, #{24 + 6 * i}%, #{43 - 2*i}%)" for i in [1..8]
+  @colors["ins#{i+8}"] = "hsl(44, #{24 + 6 * i}%, #{43 - 2*i}%)" for i in [1..8]
 
   enclosingRect = (a, b) ->
     tx: Math.min a.tx, b.tx
@@ -149,11 +151,12 @@ module.exports = class Boilerplate
         82: 'ribbon' # r
       })[kc]
       if e.ctrlKey
-        newTool = "ins#{kc - 48}" if 49 <= kc <= 57 # ins1 to ins16.
+        a = if e.shiftKey then 8 else 0
+        newTool = "ins#{kc - 48 + a}" if 49 <= kc <= 57 # ins1 to ins16.
         newTool = 'bridge' if newTool is 'nothing'
         newTool = 'ribbonbridge' if newTool is 'ribbon'
 
-      console.log 'newTool', newTool
+      # console.log 'newTool', newTool
 
       if newTool
         @clearSelection()
