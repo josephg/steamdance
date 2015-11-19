@@ -107,7 +107,7 @@ exports.load = (bp) ->
     addModule util.deserializeRegion raw
 
   bp.onSelection = (data) ->
-    # console.log 'selection'
+    # console.log 'selection', data
     # document.getElementById('addmod').style.display = 'none'
     # addModElem.style.removeProperty 'height'
     if (e = elementForModuleData.get data)

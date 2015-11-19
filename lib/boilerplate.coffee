@@ -344,19 +344,21 @@ global.Boilerplate = module.exports = class Boilerplate
     #@el = document.createElement 'div'
     #@el.className = 'boilerplate'
     @el.tabIndex = 0 if @el.tabIndex is -1 # allow keyboard events
-    @canvas = @el.appendChild document.createElement 'canvas'
-    @canvas.className = 'draw'
+    @staticCanvas = @el.appendChild document.createElement 'canvas'
+    @staticCanvas.className = 'draw'
+    @staticCanvas.style.backgroundColor = Boilerplate.colors.solid
+    @dynCanvas = @el.appendChild document.createElement 'canvas'
+    @dynCanvas.className = 'draw'
 
     @el.boilerplate = this
 
     if @useWebGL
+      throw Error "webgl isn't supported at the moment. I broke it - sorry :/"
       @ctx = new WebGLContext @canvas
       console.log "using webgl"
     else
       console.log "using canvas"
 
-    #@canvas.width = el.offsetWidth
-    #@canvas.height = el.offsetHeight
     @resizeTo @el.offsetWidth, @el.offsetHeight
 
 
@@ -494,7 +496,7 @@ global.Boilerplate = module.exports = class Boilerplate
     @updateCursor()
 
   updateCursor: ->
-    @canvas.style.cursor =
+    @dynCanvas.style.cursor =
       if @activeTool is 'move' and !@imminentSelect
         if @draggedShuttle
           '-webkit-grabbing'
@@ -519,12 +521,15 @@ global.Boilerplate = module.exports = class Boilerplate
       @canvas.height = @height
       @ctx.resizeTo @width, @height
     else
-      @canvas.width = @width * devicePixelRatio
-      @canvas.height = @height * devicePixelRatio
-      @canvas.style.width = @width + 'px'
-      @canvas.style.height = @height + 'px'
-      @ctx = @canvas.getContext '2d'
-      @ctx.scale devicePixelRatio, devicePixelRatio
+      @dynCanvas.width = @staticCanvas.width = @width * devicePixelRatio
+      @dynCanvas.height = @staticCanvas.height = @height * devicePixelRatio
+      # I'm not sure why this is needed?
+      # @staticCanvas.style.width = @width + 'px'
+      # @staticCanvas.style.height = @height + 'px'
+      @sctx = @staticCanvas.getContext '2d'
+      @sctx.scale devicePixelRatio, devicePixelRatio
+      @dctx = @dynCanvas.getContext '2d'
+      @dctx.scale devicePixelRatio, devicePixelRatio
 
     @draw()
 
@@ -767,16 +772,18 @@ global.Boilerplate = module.exports = class Boilerplate
       @draw() if @keysPressed
 
   drawFrame: ->
-    @ctx.fillStyle = Boilerplate.colors['solid']
-    @ctx.fillRect 0, 0, @width, @height
+    # @ctx.fillStyle = Boilerplate.colors['solid']
+    # @ctx.fillRect 0, 0, @width, @height
+    @sctx.clearRect 0, 0, @width, @height
+    @dctx.clearRect 0, 0, @width, @height
 
     @drawGrid()
 
     @drawOverlay()
 
-    @ctx.flush?()
+    # @ctx.flush?() # for webgl
 
-  drawCells: (points, offset, override) ->
+  drawCells: (ctx, points, offset, override) ->
     # Helper to draw blocky cells
     if typeof offset in ['function', 'string']
       [offset, override] = [{dx:0, dy:0}, offset]
@@ -787,16 +794,16 @@ global.Boilerplate = module.exports = class Boilerplate
       return unless px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
       if typeof override is 'function'
         return unless (style = override tx, ty, v)
-        @ctx.fillStyle = style
+        ctx.fillStyle = style
       else if override
-        @ctx.fillStyle = override
+        ctx.fillStyle = override
       else
-        @ctx.fillStyle = Boilerplate.colors[v] || 'red'
+        ctx.fillStyle = Boilerplate.colors[v] || 'red'
 
-      @ctx.fillRect px, py, @size, @size
+      ctx.fillRect px, py, @size, @size
 
   # Draw a path around the specified blob edge. The edge should be a Set3 of (x,y,dir).
-  pathAroundEdge: (edge, border, pos) ->
+  pathAroundEdge: (ctx, edge, border, pos) ->
     if pos
       {sx, sy} = pos
     else
@@ -818,14 +825,14 @@ global.Boilerplate = module.exports = class Boilerplate
       py += border * (-dy + dx*em)
 
       if first
-        @ctx.moveTo px, py
+        ctx.moveTo px, py
       else
-        @ctx.lineTo px, py
+        ctx.lineTo px, py
 
       #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
 
     visited = new Set3
-    @ctx.beginPath()
+    ctx.beginPath()
     # I can't simply draw from the first edge because the shuttle might have
     # holes (and hence multiple continuous edges).
     edge.forEach (x, y, dir) =>
@@ -859,7 +866,7 @@ global.Boilerplate = module.exports = class Boilerplate
           first = no
 
       # End the path.
-      @ctx.closePath()
+      ctx.closePath()
 
 
 
@@ -884,13 +891,13 @@ global.Boilerplate = module.exports = class Boilerplate
     border = if @size < 5 then 0 else (@size * 0.04+1)|0
 
     # Thinshuttles first.
-    @ctx.strokeStyle = if isHovered
+    @dctx.strokeStyle = if isHovered
       'hsl(283, 89%, 65%)'
     else
       Boilerplate.colors.thinshuttle
     size2 = (@size/2)|0
     size4 = (@size/4)|0
-    @ctx.lineWidth = size4 * 2 # An even number.
+    @dctx.lineWidth = size4 * 2 # An even number.
     shuttle.points.forEach (x, y, v) =>
       return if v is 'shuttle'
 
@@ -901,43 +908,43 @@ global.Boilerplate = module.exports = class Boilerplate
       numLines = 0
       for {dx,dy} in DIRS when shuttle.points.has x+dx, y+dy
         # Draw a little line from here to there.
-        @ctx.beginPath()
-        @ctx.moveTo px - size4*dx, py - size4*dy
-        @ctx.lineTo px + (@size+size4) * dx, py + (@size+size4) * dy
-        @ctx.stroke()
+        @dctx.beginPath()
+        @dctx.moveTo px - size4*dx, py - size4*dy
+        @dctx.lineTo px + (@size+size4) * dx, py + (@size+size4) * dy
+        @dctx.stroke()
         numLines++
 
       if numLines is 0
         # Erk, the shuttle would be invisible. I'll draw a sympathy square.
         {px, py} = @worldToScreen x+sx, y+sy
-        @ctx.fillStyle = Boilerplate.colors.thinshuttle
-        @ctx.fillRect px + size4, py + size4, size2, size2
+        @dctx.fillStyle = Boilerplate.colors.thinshuttle
+        @dctx.fillRect px + size4, py + size4, size2, size2
 
-    @pathAroundEdge shuttle.pushEdges, border, {sx, sy}
-    @ctx.fillStyle = Boilerplate.colors.shuttle
-    @ctx.fill()
+    @pathAroundEdge @dctx, shuttle.pushEdges, border, {sx, sy}
+    @dctx.fillStyle = Boilerplate.colors.shuttle
+    @dctx.fill()
 
     if isHovered
-      @pathAroundEdge shuttle.pushEdges, border*2, {sx, sy}
-      @ctx.lineWidth = border*4
-      @ctx.strokeStyle = 'hsla(283, 65%, 25%, 0.5)'
-      @ctx.stroke()
+      @pathAroundEdge @dctx, shuttle.pushEdges, border*2, {sx, sy}
+      @dctx.lineWidth = border*4
+      @dctx.strokeStyle = 'hsla(283, 65%, 25%, 0.5)'
+      @dctx.stroke()
 
     return yes
 
   drawEngine: (engine, t) ->
-    @pathAroundEdge engine.edges, 2
+    @pathAroundEdge @sctx, engine.edges, 2
 
-    @ctx.strokeStyle = if engine.type is 'positive'
+    @sctx.strokeStyle = if engine.type is 'positive'
       'hsl(120, 52%, 26%)'
     else
       'hsl(16, 68%, 20%)'
 
-    @ctx.lineWidth = 4
-    @ctx.stroke()
+    @sctx.lineWidth = 4
+    @sctx.stroke()
 
-    #@ctx.fillStyle = Boilerplate.colors[engine.type]
-    #@ctx.fill()
+    #@sctx.fillStyle = Boilerplate.colors[engine.type]
+    #@sctx.fill()
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -957,7 +964,7 @@ global.Boilerplate = module.exports = class Boilerplate
     {tx:mtx, ty:mty, tc:mtc} = @screenToWorldCell mx, my
 
     # Draw the grid
-    @drawCells @parsed.baseGrid, (tx, ty, v) ->
+    @drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
       #return if v in ['positive', 'negative']
       Boilerplate.colors[v] || 'red'
 
@@ -990,7 +997,7 @@ global.Boilerplate = module.exports = class Boilerplate
     #console.log hover if hover
 
     # Draw pressure
-    @drawCells @parsed.baseGrid, (tx, ty, v) =>
+    @drawCells @dctx, @parsed.baseGrid, (tx, ty, v) =>
       if v in ['nothing', 'thinsolid', 'thinshuttle'] or util.insNum(v) != -1
         group = @parsed.modules.groups.get tx, ty, 0
         zone = @parsed.modules.zones.getZoneForGroup(group) if group
@@ -1003,7 +1010,7 @@ global.Boilerplate = module.exports = class Boilerplate
     @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t, hover.shuttle == shuttle
 
-    if hover.points then @drawCells hover.points, 'rgba(100,100,100,0.3)'
+    if hover.points then @drawCells @dctx, hover.points, 'rgba(100,100,100,0.3)'
 
     if hover.pressure
       # {px, py} = @worldToScreen mtx, mty
@@ -1013,20 +1020,20 @@ global.Boilerplate = module.exports = class Boilerplate
       fontsize = size
       text = "#{hover.pressure}"
       while fontsize > 3
-        @ctx.font = "#{fl fontsize}px sans-serif"
-        break if (@ctx.measureText text).width < size - 3
+        @dctx.font = "#{fl fontsize}px sans-serif"
+        break if (@dctx.measureText text).width < size - 3
         fontsize--
 
-      @ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-      @ctx.fillRect px, py, size, size
+      @dctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+      @dctx.fillRect px, py, size, size
 
-      @ctx.fillStyle = if hover.pressure < 0
+      @dctx.fillStyle = if hover.pressure < 0
         Boilerplate.colors['negative']
       else
         Boilerplate.colors['positive']
-      @ctx.textBaseline = 'middle'
-      @ctx.textAlign = 'center'
-      @ctx.fillText text, px + size/2, py + size/2
+      @dctx.textBaseline = 'middle'
+      @dctx.textAlign = 'center'
+      @dctx.fillText text, px + size/2, py + size/2
 
 
 
@@ -1046,7 +1053,7 @@ global.Boilerplate = module.exports = class Boilerplate
     else if @imminentSelect
       sa = sb = {tx:mtx, ty:mty}
 
-    @ctx.lineWidth = 1
+    @dctx.lineWidth = 1
 
     # Draw the mouse hover state
     if @mouse.tx != null
@@ -1054,32 +1061,32 @@ global.Boilerplate = module.exports = class Boilerplate
         # The user is dragging out a selection rectangle
         {tx, ty, tw, th} = enclosingRect sa, sb
         {px, py} = @worldToScreen tx, ty
-        @ctx.fillStyle = 'rgba(0,0,255,0.5)'
-        @ctx.fillRect px, py, tw*@size, th*@size
+        @dctx.fillStyle = 'rgba(0,0,255,0.5)'
+        @dctx.fillRect px, py, tw*@size, th*@size
 
-        @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
-        @ctx.strokeRect px, py, tw*@size, th*@size
+        @dctx.strokeStyle = 'rgba(0,255,255,0.5)'
+        @dctx.strokeRect px, py, tw*@size, th*@size
       else if @selection # mouse.tx is null when the mouse isn't in the div
         # The user is holding a selection stamp
-        @ctx.globalAlpha = 0.8
+        @dctx.globalAlpha = 0.8
         for y in [0...@selection.th]
           for x in [0...@selection.tw]
             {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
             if px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
               v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
-              @ctx.fillStyle = (if v then Boilerplate.colors[v] else Boilerplate.colors['solid']) or 'red'
-              @ctx.fillRect px, py, @size, @size
-        @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
-        @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
-        @ctx.globalAlpha = 1
+              @dctx.fillStyle = (if v then Boilerplate.colors[v] else Boilerplate.colors['solid']) or 'red'
+              @dctx.fillRect px, py, @size, @size
+        @dctx.strokeStyle = 'rgba(0,255,255,0.5)'
+        @dctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
+        @dctx.globalAlpha = 1
       else if mpx?
         if @activeTool isnt 'move'
           # The user is holding a paintbrush to paint with a different tool
-          @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid'] || 'red'
-          @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
+          @dctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid'] || 'red'
+          @dctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
-          @ctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
-          @ctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
+          @dctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
+          @dctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
 
 
     return
