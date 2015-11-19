@@ -66,7 +66,7 @@ addModules = (jit) ->
   jit.modules.prevState = prevState
 
 
-letsShuttleThrough = (v) -> v in ['nothing', 'bridge']
+letsShuttleThrough = (v) -> v in ['nothing', 'bridge', 'ribbon', 'ribbonbridge']
 layerOf = (v) -> if v in ['shuttle', 'thinshuttle'] then 'shuttles' else 'base'
 
 # t=0 -> x, t=1 -> y
@@ -106,6 +106,9 @@ module.exports = class Boilerplate
     solid: 'hsl(184, 49%, 7%)'
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
+    interface: 'hsl(44, 87%, 52%)'
+    ribbon: 'hotpink'
+    ribbonbridge: 'pink'
 
   enclosingRect = (a, b) ->
     tx: Math.min a.tx, b.tx
@@ -133,7 +136,7 @@ module.exports = class Boilerplate
         54: 'shuttle'
         55: 'thinshuttle'
         56: 'bridge'
-        # 57: 'thinbridge'
+        57: 'ribbon'
 
         80: 'positive' # p
         78: 'negative' # n
@@ -143,8 +146,15 @@ module.exports = class Boilerplate
         71: 'thinsolid' # g
         68: 'solid' # d
         66: 'bridge' # b
-        # 84: 'thinbridge' # t
+        82: 'ribbon' # r
       })[kc]
+      if e.ctrlKey
+        newTool = "ins#{kc - 48}" if 49 <= kc <= 57 # ins1 to ins16.
+        newTool = 'bridge' if newTool is 'nothing'
+        newTool = 'ribbonbridge' if newTool is 'ribbon'
+
+      console.log 'newTool', newTool
+
       if newTool
         @clearSelection()
         @changeTool newTool
@@ -256,6 +266,8 @@ module.exports = class Boilerplate
       when 'bridge'
         # The only cells are UP and RIGHT.
         if upRight != downRight then UP else RIGHT
+      when 'ribbonbridge'
+        if upRight != downRight then 0 else util.NUMINS
       when 'negative', 'positive'
         if upRight
           if downRight then RIGHT else UP
@@ -976,7 +988,7 @@ module.exports = class Boilerplate
 
     # Draw pressure
     @drawCells @parsed.baseGrid, (tx, ty, v) =>
-      if v in ['nothing', 'thinsolid', 'thinshuttle']
+      if v in ['nothing', 'thinsolid', 'thinshuttle'] or util.insNum(v) != -1
         group = @parsed.modules.groups.get tx, ty, 0
         zone = @parsed.modules.zones.getZoneForGroup(group) if group
         if zone?.pressure
@@ -1052,7 +1064,7 @@ module.exports = class Boilerplate
             {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
             if px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
               v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
-              @ctx.fillStyle = if v then Boilerplate.colors[v] else Boilerplate.colors['solid']
+              @ctx.fillStyle = (if v then Boilerplate.colors[v] else Boilerplate.colors['solid']) or 'red'
               @ctx.fillRect px, py, @size, @size
         @ctx.strokeStyle = 'rgba(0,255,255,0.5)'
         @ctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
@@ -1060,7 +1072,7 @@ module.exports = class Boilerplate
       else if mpx?
         if @activeTool isnt 'move'
           # The user is holding a paintbrush to paint with a different tool
-          @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid']
+          @ctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid'] || 'red'
           @ctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
 
           @ctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
