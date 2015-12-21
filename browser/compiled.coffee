@@ -50,7 +50,7 @@ loadGrid = (name) ->
     try
       grid = JSON.parse gridStr
       console.log 'loaded', worldName if grid
-  grid || {}
+  grid || {base:{}, shuttles:{}}
 
 running = false
 
@@ -122,8 +122,10 @@ worldLabel.onkeydown = (e) ->
 
 window.onhashchange = ->
   hash = location.hash
-  worldName = hash[1..] if hash
-  reset loadGrid worldName
+  newWorld = hash[1..] if hash
+  if newWorld != worldName
+    worldName = newWorld
+    reset loadGrid worldName
 
 window.onresize = ->
   bp.resizeTo window.innerWidth, window.innerHeight
