@@ -524,8 +524,8 @@ global.Boilerplate = module.exports = class Boilerplate
       @dynCanvas.width = @staticCanvas.width = @width * devicePixelRatio
       @dynCanvas.height = @staticCanvas.height = @height * devicePixelRatio
       # I'm not sure why this is needed?
-      # @staticCanvas.style.width = @width + 'px'
-      # @staticCanvas.style.height = @height + 'px'
+      #@dynCanvas.style.width = @staticCanvas.style.width = @width + 'px'
+      #@dynCanvas.style.height = @staticCanvas.style.height = @height + 'px'
       @sctx = @staticCanvas.getContext '2d'
       @sctx.scale devicePixelRatio, devicePixelRatio
       @dctx = @dynCanvas.getContext '2d'
