@@ -722,9 +722,12 @@ global.Boilerplate = module.exports = class Boilerplate
       json = {tw:@selection.tw, th:@selection.th, base:{}, shuttles:{}}
       @selection.base.forEach (x, y, v) -> json.base["#{x},#{y}"] = v if v?
       @selection.shuttles.forEach (x, y, v) -> json.shuttles["#{x},#{y}"] = v if v?
+    else
+      json = @getJSONGrid()
 
-      e.clipboardData.setData 'text', JSON.stringify json
-      #console.log JSON.stringify json
+    e.clipboardData.setData 'text', JSON.stringify json
+    #console.log JSON.stringify json
+    
     e.preventDefault()
 
   paste: (e) ->
