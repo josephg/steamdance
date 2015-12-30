@@ -159,8 +159,21 @@ global.Boilerplate = module.exports = class Boilerplate
       # console.log 'newTool', newTool
 
       if newTool
-        @clearSelection()
-        @changeTool newTool
+        if @selection
+          # Fill the entire selection with the selected brush
+          for x in [0...@selection.tw]
+            for y in [0...@selection.th]
+              if newTool is 'nothing'
+                @selection.base.delete x, y
+                @selection.shuttles.delete x, y
+              else if newTool in ['shuttle', 'thinshuttle']
+                @selection.base.set x, y, 'nothing' unless letsShuttleThrough @selection.base.get(x, y)
+                @selection.shuttles.set x, y, newTool
+              else
+                @selection.base.set x, y, newTool
+                @selection.shuttles.delete x, y
+        else
+          @changeTool newTool
 
       if 37 <= e.keyCode <= 40
         @lastKeyScroll = Date.now()
