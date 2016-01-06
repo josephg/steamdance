@@ -88,12 +88,17 @@ line = (x0, y0, x1, y1, f) ->
   return
 
 class View
-  constructor: (options) ->
+  constructor: (@width, @height, options) ->
+    @watch = new Watcher ((fn) => fn @)
+    @reset options
+
+  reset: (options) ->
     @zoomLevel = options?.initialZoom ? 1
     @zoomBy 0
     # In tile coordinates
     @scrollX = options?.initialX ? 0
     @scrollY = options?.initialY ? 0
+    @watch.signal @
 
   zoomBy: (diff, center) -> # center is {x, y}
     # console.log 'zoomBy', diff
@@ -107,10 +112,16 @@ class View
     if center?
       @scrollX += center.x / oldsize - center.x / @size
       @scrollY += center.y / oldsize - center.y / @size
+    @watch.signal @
 
   scrollBy: (dx, dy) -> # In pixels.
     @scrollX += dx / @size
     @scrollY += dy / @size
+    @watch.signal @
+
+  resizeTo: (@width, @height) ->
+    @watch.signal @
+
 
   # Utility methods
 
@@ -331,8 +342,7 @@ global.Boilerplate = module.exports = class Boilerplate
     @parsed.set x, y, bv, sv
     return true
 
-  resetView: (options) ->
-    @view = new View options
+  resetView: -> @view.reset @options
 
   setJSONGrid: (json) ->
     @parsed = Jit json
@@ -343,7 +353,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
   getJSONGrid: -> @parsed.toJSON()
 
-  constructor: (@el, options) ->
+  constructor: (@el, @options) ->
     @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
     @lastKeyScroll = 0 # epoch time
 
@@ -354,12 +364,12 @@ global.Boilerplate = module.exports = class Boilerplate
     @undoStack = []
     @redoStack = []
 
-    @setJSONGrid options.grid
+    @setJSONGrid @options.grid
 
-    @resetView options
+    @view = new View @el.offsetWidth, @el.offsetHeight, @options
 
-    @canScroll = options.canScroll ? true
-    @animTime = options.animTime || 0
+    @canScroll = @options.canScroll ? true
+    @animTime = @options.animTime || 0
 
     #@el = document.createElement 'div'
     #@el.className = 'boilerplate'
@@ -372,8 +382,6 @@ global.Boilerplate = module.exports = class Boilerplate
     @dynCanvas.className = 'draw'
 
     @el.boilerplate = this
-
-    @resizeTo @el.offsetWidth, @el.offsetHeight
 
     @gridRenderer = new GLRenderer @gridCanvas, @parsed
 
@@ -389,8 +397,25 @@ global.Boilerplate = module.exports = class Boilerplate
 
     @draw()
 
-
     # ----- Event handlers
+
+    @view.watch.forward ({@width, @height}) =>
+      console.log "resized to #{@width}x#{@height}"
+
+      @dynCanvas.width = @gridCanvas.width = @width * devicePixelRatio
+      @dynCanvas.height = @gridCanvas.height = @height * devicePixelRatio
+      # I'm not sure why this is needed?
+      #@dynCanvas.style.width = @gridCanvas.style.width = @width + 'px'
+      #@dynCanvas.style.height = @gridCanvas.style.height = @height + 'px'
+      
+      # XXXXX
+      @sctx = @gridCanvas.getContext '2d'
+      @sctx.scale devicePixelRatio, devicePixelRatio
+      
+      @dctx = @dynCanvas.getContext '2d'
+      @dctx.scale devicePixelRatio, devicePixelRatio
+
+      @draw()
 
     @el.onmousemove = (e) =>
       @imminentSelect = !!e.shiftKey
@@ -523,23 +548,7 @@ global.Boilerplate = module.exports = class Boilerplate
           else
             'crosshair'
 
-  resizeTo: (@width, @height) ->
-    #console.log "resized to #{width}x#{height}"
-
-    @dynCanvas.width = @gridCanvas.width = @width * devicePixelRatio
-    @dynCanvas.height = @gridCanvas.height = @height * devicePixelRatio
-    # I'm not sure why this is needed?
-    #@dynCanvas.style.width = @gridCanvas.style.width = @width + 'px'
-    #@dynCanvas.style.height = @gridCanvas.style.height = @height + 'px'
-    
-    # XXXXX
-    @sctx = @gridCanvas.getContext '2d'
-    @sctx.scale devicePixelRatio, devicePixelRatio
-    
-    @dctx = @dynCanvas.getContext '2d'
-    @dctx.scale devicePixelRatio, devicePixelRatio
-
-    @draw()
+  resizeTo: (w, h) -> @view.resizeTo w, h
 
   paint: ->
     throw 'Invalid placing' if @activeTool is 'move'
