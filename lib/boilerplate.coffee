@@ -718,6 +718,7 @@ global.Boilerplate = module.exports = class Boilerplate
         changed = true if @set mtx+x, mty+y, bv, sv
 
     @editStop()
+    @onEditFinish?()
     @draw() if changed
 
   clearSelection: ->
