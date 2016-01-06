@@ -8,13 +8,15 @@
   },
   "main": "server.coffee",
   "dependencies": {
-    "level": "*",
-    "express": "*",
-    "ws": "*",
-    "boilerplate-sim": "^1.0.3",
+    "babel-preset-es2015": "^6.3.13",
+    "babelify": "^7.2.0",
     "boilerplate-jit": "*",
+    "boilerplate-sim": "^1.0.3",
+    "browserify": "^6.0.3",
     "coffeeify": "^0.7.0",
-    "browserify": "^6.0.3"
+    "express": "*",
+    "level": "*",
+    "ws": "*"
   },
   "devDependencies": {},
   "optionalDependencies": {},

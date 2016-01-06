@@ -1,5 +1,9 @@
 {Jit, Map2, Map3, Set2, Set3, util, Watcher} = require 'boilerplate-jit'
 assert = require 'assert'
+{letsShuttleThrough, layerOf, lerp, clamp} = require './util'
+
+{default: GLRenderer} = require './gl2'
+
 # {WebGLContext} = require './gl'
 
 UP=0; RIGHT=1; DOWN=2; LEFT=3
@@ -62,17 +66,8 @@ addModules = (jit) ->
 
   prevState = PrevState shuttles, currentStates, stepWatch
 
-
   jit.modules.prevState = prevState
 
-
-letsShuttleThrough = (v) -> v in ['nothing', 'bridge', 'ribbon', 'ribbonbridge']
-layerOf = (v) -> if v in ['shuttle', 'thinshuttle'] then 'shuttles' else 'base'
-
-# t=0 -> x, t=1 -> y
-lerp = (t, x, y) -> (1 - t)*x + t*y
-
-clamp = (x, min, max) -> Math.max(Math.min(x, max), min)
 
 line = (x0, y0, x1, y1, f) ->
   dx = Math.abs x1-x0
@@ -91,6 +86,85 @@ line = (x0, y0, x1, y1, f) ->
       y0 += iy
       e = e2
   return
+
+class View
+  constructor: (options) ->
+    @zoomLevel = options?.initialZoom ? 1
+    @zoomBy 0
+    # In tile coordinates
+    @scrollX = options?.initialX ? 0
+    @scrollY = options?.initialY ? 0
+
+  zoomBy: (diff, center) -> # center is {x, y}
+    # console.log 'zoomBy', diff
+    oldsize = @size
+
+    @zoomLevel += diff
+    @zoomLevel = clamp @zoomLevel, 1/20, 5
+    @size = Math.floor 20 * @zoomLevel
+
+    # Recenter
+    if center?
+      @scrollX += center.x / oldsize - center.x / @size
+      @scrollY += center.y / oldsize - center.y / @size
+
+  scrollBy: (dx, dy) -> # In pixels.
+    @scrollX += dx / @size
+    @scrollY += dy / @size
+
+  # Utility methods
+
+  # given pixel x,y returns tile x,y
+  screenToWorld: (px, py) ->
+    return {tx:null, ty:null} unless px?
+    # first, the top-left pixel of the screen is at |_ scroll * size _| px from origin
+    px += Math.floor(@scrollX * @size)
+    py += Math.floor(@scrollY * @size)
+    # now we can simply divide and floor to find the tile
+    tx = Math.floor(px / @size)
+    ty = Math.floor(py / @size)
+    {tx,ty}
+
+  # Same as screenToWorld, but also returns which cell in the result.
+  screenToWorldCell: (px, py, parsed) ->
+    return {tx:null, ty:null} unless px?
+    # This logic is adapted from screenToWorld above.
+    px += Math.floor(@scrollX * @size)
+    py += Math.floor(@scrollY * @size)
+    tx_ = px / @size; ty_ = py / @size
+    tx = Math.floor(tx_); ty = Math.floor(ty_)
+
+    # There's no cell for solid (null) cells.
+    v = parsed.get 'base', tx, ty
+    return {tx, ty, tc:null} unless v
+
+    offX = tx_ - tx; offY = ty_ - ty
+
+    upRight = offX > offY
+    downRight = offX + offY > 1
+    tc = switch v
+      when 'bridge'
+        # The only cells are UP and RIGHT.
+        if upRight != downRight then UP else RIGHT
+      when 'ribbonbridge'
+        if upRight != downRight then 0 else util.NUMINS
+      when 'negative', 'positive'
+        if upRight
+          if downRight then RIGHT else UP
+        else
+          if downRight then DOWN else LEFT
+      else
+        0
+
+    return {tx, ty, tc}
+
+  # given tile x,y returns the pixel x,y,w,h at which the tile resides on the screen.
+  worldToScreen: (tx, ty) ->
+    return {px:null, py:null} unless tx?
+    px: tx * @size - Math.floor(@scrollX * @size)
+    py: ty * @size - Math.floor(@scrollY * @size)
+
+
 
 global.Boilerplate = module.exports = class Boilerplate
   @colors =
@@ -203,13 +277,10 @@ global.Boilerplate = module.exports = class Boilerplate
 
         when 187, 189 # plus
           # debugger
-          oldsize = @size
-          amt = Math.max(1, @size/8)/20
+          amt = Math.max(1, @view.size/8)/20
           amt *= -1 if kc is 189 # minus key
           amt *= 3 if @keysPressed & KEY.shift
-          @zoomBy amt
-          @scrollX += @width/oldsize/2 - @width/@size/2
-          @scrollY += @height/oldsize/2 - @height/@size/2
+          @view.zoomBy amt, {x:@width/2, y:@height/2}
 
       if (e.ctrlKey || e.metaKey) and kc is 90 # ctrl+z or cmd+z
         if e.shiftKey then @redo() else @undo()
@@ -248,65 +319,6 @@ global.Boilerplate = module.exports = class Boilerplate
 
 
 
-  # ----- Utility methods for panning around the screen
-
-  # given pixel x,y returns tile x,y
-  screenToWorld: (px, py) ->
-    return {tx:null, ty:null} unless px?
-    # first, the top-left pixel of the screen is at |_ scroll * size _| px from origin
-    px += Math.floor(@scrollX * @size)
-    py += Math.floor(@scrollY * @size)
-    # now we can simply divide and floor to find the tile
-    tx = Math.floor(px / @size)
-    ty = Math.floor(py / @size)
-    {tx,ty}
-
-  # Same as screenToWorld, but also returns which cell in the result.
-  screenToWorldCell: (px, py) ->
-    return {tx:null, ty:null} unless px?
-    # This logic is adapted from screenToWorld above.
-    px += Math.floor(@scrollX * @size)
-    py += Math.floor(@scrollY * @size)
-    tx_ = px / @size; ty_ = py / @size
-    tx = Math.floor(tx_); ty = Math.floor(ty_)
-
-    # There's no cell for solid (null) cells.
-    v = @parsed.get 'base', tx, ty
-    return {tx, ty, tc:null} unless v
-
-    offX = tx_ - tx; offY = ty_ - ty
-
-    upRight = offX > offY
-    downRight = offX + offY > 1
-    tc = switch v
-      when 'bridge'
-        # The only cells are UP and RIGHT.
-        if upRight != downRight then UP else RIGHT
-      when 'ribbonbridge'
-        if upRight != downRight then 0 else util.NUMINS
-      when 'negative', 'positive'
-        if upRight
-          if downRight then RIGHT else UP
-        else
-          if downRight then DOWN else LEFT
-      else
-        0
-
-    return {tx, ty, tc}
-
-  # given tile x,y returns the pixel x,y,w,h at which the tile resides on the screen.
-  worldToScreen: (tx, ty) ->
-    return {px:null, py:null} unless tx?
-    px: tx * @size - Math.floor(@scrollX * @size)
-    py: ty * @size - Math.floor(@scrollY * @size)
-
-  zoomBy: (diff) ->
-    # console.log 'zoomBy', diff
-    @zoomLevel += diff
-    @zoomLevel = clamp @zoomLevel, 1/20, 5
-    @size = Math.floor 20 * @zoomLevel
-
-
   set: (x, y, bv = null, sv = null) ->
     #throw Error "Invalid layer #{layer}" unless !v? or layer == layerOf v
     bp = @parsed.get('base', x, y) || null
@@ -320,11 +332,7 @@ global.Boilerplate = module.exports = class Boilerplate
     return true
 
   resetView: (options) ->
-    @zoomLevel = 1
-    @zoomBy 0
-    # In tile coordinates
-    @scrollX = options?.initialX || 0
-    @scrollY = options?.initialY || 0
+    @view = new View options
 
   setJSONGrid: (json) ->
     @parsed = Jit json
@@ -352,28 +360,22 @@ global.Boilerplate = module.exports = class Boilerplate
 
     @canScroll = options.canScroll ? true
     @animTime = options.animTime || 0
-    @useWebGL = options.useWebGL || false
 
     #@el = document.createElement 'div'
     #@el.className = 'boilerplate'
     @el.tabIndex = 0 if @el.tabIndex is -1 # allow keyboard events
-    @staticCanvas = @el.appendChild document.createElement 'canvas'
-    @staticCanvas.className = 'draw'
-    @staticCanvas.style.backgroundColor = Boilerplate.colors.solid
+    @gridCanvas = @el.appendChild document.createElement 'canvas'
+    @gridCanvas.className = 'draw'
+    @gridCanvas.style.backgroundColor = Boilerplate.colors.solid
+
     @dynCanvas = @el.appendChild document.createElement 'canvas'
     @dynCanvas.className = 'draw'
 
     @el.boilerplate = this
 
-    if @useWebGL
-      throw Error "webgl isn't supported at the moment. I broke it - sorry :/"
-      @ctx = new WebGLContext @canvas
-      console.log "using webgl"
-    else
-      console.log "using canvas"
-
     @resizeTo @el.offsetWidth, @el.offsetHeight
 
+    @gridRenderer = new GLRenderer @gridCanvas, @parsed
 
     #@el.onresize = -> console.log 'yo'
 
@@ -403,7 +405,7 @@ global.Boilerplate = module.exports = class Boilerplate
       if e.shiftKey
         @mouse.mode = 'select'
         @clearSelection()
-        @selectedA = @screenToWorld @mouse.x, @mouse.y
+        @selectedA = @view.screenToWorld @mouse.x, @mouse.y
         @selectedB = @selectedA
       else if @selection
         @stamp()
@@ -473,15 +475,10 @@ global.Boilerplate = module.exports = class Boilerplate
       @updateMousePos e
 
       if e.shiftKey or e.ctrlKey
-        oldsize = @size
-        @zoomBy -e.deltaY / 400
-
-        @scrollX += @mouse.x / oldsize - @mouse.x / @size
-        @scrollY += @mouse.y / oldsize - @mouse.y / @size
+        @view.zoomBy -e.deltaY / 400, @mouse
       else
-        @scrollX += e.deltaX / @size
-        @scrollY += e.deltaY / @size
-      {tx:@mouse.tx, ty:@mouse.ty} = @screenToWorld @mouse.x, @mouse.y
+        @view.scrollBy e.deltaX, e.deltaY
+      {tx:@mouse.tx, ty:@mouse.ty} = @view.screenToWorld @mouse.x, @mouse.y
       e.preventDefault()
       @cursorMoved()
 
@@ -490,7 +487,7 @@ global.Boilerplate = module.exports = class Boilerplate
     if e
       @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
-    {tx, ty, tc} = @screenToWorldCell @mouse.x, @mouse.y
+    {tx, ty, tc} = @view.screenToWorldCell @mouse.x, @mouse.y, @parsed
 
     if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
       @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
@@ -501,7 +498,7 @@ global.Boilerplate = module.exports = class Boilerplate
   cursorMoved: ->
     switch @mouse.mode
       when 'paint' then @paint()
-      when 'select' then @selectedB = @screenToWorld @mouse.x, @mouse.y
+      when 'select' then @selectedB = @view.screenToWorld @mouse.x, @mouse.y
 
     @dragShuttleTo @mouse.tx, @mouse.ty if @draggedShuttle?
 
@@ -529,20 +526,18 @@ global.Boilerplate = module.exports = class Boilerplate
   resizeTo: (@width, @height) ->
     #console.log "resized to #{width}x#{height}"
 
-    if @useWebGL
-      @canvas.width = @width
-      @canvas.height = @height
-      @ctx.resizeTo @width, @height
-    else
-      @dynCanvas.width = @staticCanvas.width = @width * devicePixelRatio
-      @dynCanvas.height = @staticCanvas.height = @height * devicePixelRatio
-      # I'm not sure why this is needed?
-      #@dynCanvas.style.width = @staticCanvas.style.width = @width + 'px'
-      #@dynCanvas.style.height = @staticCanvas.style.height = @height + 'px'
-      @sctx = @staticCanvas.getContext '2d'
-      @sctx.scale devicePixelRatio, devicePixelRatio
-      @dctx = @dynCanvas.getContext '2d'
-      @dctx.scale devicePixelRatio, devicePixelRatio
+    @dynCanvas.width = @gridCanvas.width = @width * devicePixelRatio
+    @dynCanvas.height = @gridCanvas.height = @height * devicePixelRatio
+    # I'm not sure why this is needed?
+    #@dynCanvas.style.width = @gridCanvas.style.width = @width + 'px'
+    #@dynCanvas.style.height = @gridCanvas.style.height = @height + 'px'
+    
+    # XXXXX
+    @sctx = @gridCanvas.getContext '2d'
+    @sctx.scale devicePixelRatio, devicePixelRatio
+    
+    @dctx = @dynCanvas.getContext '2d'
+    @dctx.scale devicePixelRatio, devicePixelRatio
 
     @draw()
 
@@ -700,7 +695,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
   stamp: ->
     throw new Error 'tried to stamp without a selection' unless @selection
-    {tx:mtx, ty:mty} = @screenToWorld @mouse.x, @mouse.y
+    {tx:mtx, ty:mty} = @view.screenToWorld @mouse.x, @mouse.y
     mtx -= @selectOffset.tx
     mty -= @selectOffset.ty
 
@@ -773,10 +768,10 @@ global.Boilerplate = module.exports = class Boilerplate
         amt = 0.6 * Math.min now - @lastKeyScroll, 300
         amt *= 3 if @keysPressed & KEY.shift
 
-        @scrollY -= amt/@size if @keysPressed & KEY.up
-        @scrollX += amt/@size if @keysPressed & KEY.right
-        @scrollY += amt/@size if @keysPressed & KEY.down
-        @scrollX -= amt/@size if @keysPressed & KEY.left
+        @view.scrollBy(0, -amt) if @keysPressed & KEY.up
+        @view.scrollBy(amt, 0) if @keysPressed & KEY.right
+        @view.scrollBy(0, amt) if @keysPressed & KEY.down
+        @view.scrollBy(-amt, 0) if @keysPressed & KEY.left
 
         @lastKeyScroll = now
 
@@ -785,11 +780,10 @@ global.Boilerplate = module.exports = class Boilerplate
 
       @drawFrame()
 
-      @draw() if @keysPressed
+      @draw() #if @keysPressed
 
   drawFrame: ->
-    # @ctx.fillStyle = Boilerplate.colors['solid']
-    # @ctx.fillRect 0, 0, @width, @height
+    # ******
     @sctx.clearRect 0, 0, @width, @height
     @dctx.clearRect 0, 0, @width, @height
 
@@ -805,9 +799,10 @@ global.Boilerplate = module.exports = class Boilerplate
       [offset, override] = [{dx:0, dy:0}, offset]
 
     {dx, dy} = offset
+    size = @view.size
     points.forEach (tx, ty, v) =>
-      {px, py} = @worldToScreen tx+dx, ty+dy
-      return unless px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
+      {px, py} = @view.worldToScreen tx+dx, ty+dy
+      return unless px+size >= 0 and px < @width and py+size >= 0 and py < @height
       if typeof override is 'function'
         return unless (style = override tx, ty, v)
         ctx.fillStyle = style
@@ -816,7 +811,7 @@ global.Boilerplate = module.exports = class Boilerplate
       else
         ctx.fillStyle = Boilerplate.colors[v] || 'red'
 
-      ctx.fillRect px, py, @size, @size
+      ctx.fillRect px, py, size, size
 
   # Draw a path around the specified blob edge. The edge should be a Set3 of (x,y,dir).
   pathAroundEdge: (ctx, edge, border, pos) ->
@@ -833,7 +828,7 @@ global.Boilerplate = module.exports = class Boilerplate
       ey = if dir in [RIGHT, DOWN] then y+1 else y
       ex += sx; ey += sy # transform by shuttle state x,y
 
-      {px, py} = @worldToScreen ex, ey
+      {px, py} = @view.worldToScreen ex, ey
 
       {dx, dy} = DIRS[dir]
       # Come in from the edge
@@ -845,7 +840,7 @@ global.Boilerplate = module.exports = class Boilerplate
       else
         ctx.lineTo px, py
 
-      #@ctx.lineTo (ex-@scrollX)*@size, (ey-@scrollY)*@size
+      #@ctx.lineTo (ex-@scrollX)*@view.size, (ey-@scrollY)*@view.size
 
     visited = new Set3
     ctx.beginPath()
@@ -897,28 +892,28 @@ global.Boilerplate = module.exports = class Boilerplate
       {dx:sx, dy:sy} = shuttle.currentState
 
     bounds = shuttle.bounds
-    topLeft = @worldToScreen bounds.left+sx, bounds.top+sy
-    botRight = @worldToScreen bounds.right+sx+1, bounds.bottom+sy+1
+    topLeft = @view.worldToScreen bounds.left+sx, bounds.top+sy
+    botRight = @view.worldToScreen bounds.right+sx+1, bounds.bottom+sy+1
     return no if topLeft.px > @width or
       topLeft.py > @height or
       botRight.px < 0 or
       botRight.py < 0
 
-    border = if @size < 5 then 0 else (@size * 0.04+1)|0
+    border = if @view.size < 5 then 0 else (@view.size * 0.04+1)|0
 
     # Thinshuttles first.
     @dctx.strokeStyle = if isHovered
       'hsl(283, 89%, 65%)'
     else
       Boilerplate.colors.thinshuttle
-    size2 = (@size/2)|0
-    size4 = (@size/4)|0
+    size2 = (@view.size/2)|0
+    size4 = (@view.size/4)|0
     @dctx.lineWidth = size4 * 2 # An even number.
     shuttle.points.forEach (x, y, v) =>
       return if v is 'shuttle'
 
       # base x, y of the tile
-      {px, py} = @worldToScreen x+sx, y+sy
+      {px, py} = @view.worldToScreen x+sx, y+sy
       px += size2; py += size2
 
       numLines = 0
@@ -926,13 +921,13 @@ global.Boilerplate = module.exports = class Boilerplate
         # Draw a little line from here to there.
         @dctx.beginPath()
         @dctx.moveTo px - size4*dx, py - size4*dy
-        @dctx.lineTo px + (@size+size4) * dx, py + (@size+size4) * dy
+        @dctx.lineTo px + (@view.size+size4) * dx, py + (@view.size+size4) * dy
         @dctx.stroke()
         numLines++
 
       if numLines is 0
         # Erk, the shuttle would be invisible. I'll draw a sympathy square.
-        {px, py} = @worldToScreen x+sx, y+sy
+        {px, py} = @view.worldToScreen x+sx, y+sy
         @dctx.fillStyle = Boilerplate.colors.thinshuttle
         @dctx.fillRect px + size4, py + size4, size2, size2
 
@@ -949,18 +944,18 @@ global.Boilerplate = module.exports = class Boilerplate
     return yes
 
   drawEngine: (engine, t) ->
-    @pathAroundEdge @sctx, engine.edges, 2
+    @pathAroundEdge @dctx, engine.edges, 2
 
-    @sctx.strokeStyle = if engine.type is 'positive'
+    @dctx.strokeStyle = if engine.type is 'positive'
       'hsl(120, 52%, 26%)'
     else
       'hsl(16, 68%, 20%)'
 
-    @sctx.lineWidth = 4
-    @sctx.stroke()
+    @dctx.lineWidth = 4
+    @dctx.stroke()
 
-    #@sctx.fillStyle = Boilerplate.colors[engine.type]
-    #@sctx.fill()
+    #@dctx.fillStyle = Boilerplate.colors[engine.type]
+    #@dctx.fill()
 
   drawGrid: ->
     # Will we need to redraw again soon?
@@ -971,20 +966,21 @@ global.Boilerplate = module.exports = class Boilerplate
       now = Date.now()
       exact = Math.min 1, (now - @lastStepAt) / @animTime
 
-      ((exact * @size)|0) / @size
+      ((exact * @view.size)|0) / @view.size
     else
       1
-
+    
     # Mouse position
     mx = @mouse.x; my = @mouse.y
-    {tx:mtx, ty:mty, tc:mtc} = @screenToWorldCell mx, my
+    {tx:mtx, ty:mty, tc:mtc} = @view.screenToWorldCell mx, my, @parsed
+    hover = {}
 
     # Draw the grid
     @drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
-      #return if v in ['positive', 'negative']
       Boilerplate.colors[v] || 'red'
 
-    hover = {}
+    @gridRenderer.draw()
+
     if @activeTool is 'move' and !@selection and !@imminentSelect
       bv = @parsed.get 'base', mtx, mty
       sv = @parsed.get 'shuttles', mtx, mty
@@ -1029,7 +1025,7 @@ global.Boilerplate = module.exports = class Boilerplate
     if hover.points then @drawCells @dctx, hover.points, 'rgba(100,100,100,0.3)'
 
     if hover.pressure
-      # {px, py} = @worldToScreen mtx, mty
+      # {px, py} = @view.worldToScreen mtx, mty
       px = mx; py = my + 20
       size = 23
 
@@ -1060,8 +1056,8 @@ global.Boilerplate = module.exports = class Boilerplate
   drawOverlay: ->
     mx = @mouse.x
     my = @mouse.y
-    {tx:mtx, ty:mty} = @screenToWorld mx, my
-    {px:mpx, py:mpy} = @worldToScreen mtx, mty
+    {tx:mtx, ty:mty} = @view.screenToWorld mx, my
+    {px:mpx, py:mpy} = @view.worldToScreen mtx, mty
 
     if @mouse.mode is 'select'
       sa = @selectedA
@@ -1071,38 +1067,40 @@ global.Boilerplate = module.exports = class Boilerplate
 
     @dctx.lineWidth = 1
 
+    size = @view.size
+
     # Draw the mouse hover state
     if @mouse.tx != null
       if sa
         # The user is dragging out a selection rectangle
         {tx, ty, tw, th} = enclosingRect sa, sb
-        {px, py} = @worldToScreen tx, ty
+        {px, py} = @view.worldToScreen tx, ty
         @dctx.fillStyle = 'rgba(0,0,255,0.5)'
-        @dctx.fillRect px, py, tw*@size, th*@size
+        @dctx.fillRect px, py, tw*size, th*size
 
         @dctx.strokeStyle = 'rgba(0,255,255,0.5)'
-        @dctx.strokeRect px, py, tw*@size, th*@size
+        @dctx.strokeRect px, py, tw*size, th*size
       else if @selection # mouse.tx is null when the mouse isn't in the div
         # The user is holding a selection stamp
         @dctx.globalAlpha = 0.8
         for y in [0...@selection.th]
           for x in [0...@selection.tw]
-            {px, py} = @worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
-            if px+@size >= 0 and px < @width and py+@size >= 0 and py < @height
+            {px, py} = @view.worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
+            if px+size >= 0 and px < @width and py+size >= 0 and py < @height
               v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
               @dctx.fillStyle = (if v then Boilerplate.colors[v] else Boilerplate.colors['solid']) or 'red'
-              @dctx.fillRect px, py, @size, @size
+              @dctx.fillRect px, py, size, size
         @dctx.strokeStyle = 'rgba(0,255,255,0.5)'
-        @dctx.strokeRect mpx - @selectOffset.tx*@size, mpy - @selectOffset.ty*@size, @selection.tw*@size, @selection.th*@size
+        @dctx.strokeRect mpx - @selectOffset.tx*size, mpy - @selectOffset.ty*size, @selection.tw*size, @selection.th*size
         @dctx.globalAlpha = 1
       else if mpx?
         if @activeTool isnt 'move'
           # The user is holding a paintbrush to paint with a different tool
           @dctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid'] || 'red'
-          @dctx.fillRect mpx + @size/4, mpy + @size/4, @size/2, @size/2
+          @dctx.fillRect mpx + size/4, mpy + size/4, size/2, size/2
 
           @dctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
-          @dctx.strokeRect mpx + 1, mpy + 1, @size - 2, @size - 2
+          @dctx.strokeRect mpx + 1, mpy + 1, size - 2, size - 2
 
 
     return
