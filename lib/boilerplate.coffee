@@ -351,7 +351,7 @@ global.Boilerplate = module.exports = class Boilerplate
     @gridRenderer.addModules @parsed
     @currentEdit = null
     @undoStack.length = @redoStack.length = 0
-    @draw()
+    @drawAll()
 
   getJSONGrid: -> @parsed.toJSON()
 
@@ -397,7 +397,7 @@ global.Boilerplate = module.exports = class Boilerplate
     @selectOffset = null
     @selection = null
 
-    @draw()
+    @drawAll()
 
     # ----- Event handlers
 
@@ -416,7 +416,7 @@ global.Boilerplate = module.exports = class Boilerplate
       @dctx = @dynCanvas.getContext '2d'
       @dctx.scale devicePixelRatio, devicePixelRatio
 
-      @draw()
+      @drawAll()
 
     @el.onmousemove = (e) =>
       @imminentSelect = !!e.shiftKey
@@ -567,14 +567,14 @@ global.Boilerplate = module.exports = class Boilerplate
         @set x, y, bv, @activeTool
       else
         @set x, y, @activeTool, null
-    @draw()
+    @drawAll()
 
   step: ->
     # Only redraw if step did something.
     @parsed.modules.stepWatch.signal 'before'
     if @parsed.step()
       @lastStepAt = Date.now()
-      @draw()
+      @drawAll()
       @updateCursor()
     @parsed.modules.stepWatch.signal 'after'
 
@@ -625,7 +625,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
     if shuttle.currentState != bestState
       @parsed.moveShuttle shuttle, bestState
-      @draw()
+      @drawAll() # Need to redraw the background to update pressure.
 
 
   #########################
@@ -651,7 +651,7 @@ global.Boilerplate = module.exports = class Boilerplate
       edit.base.forEach (x, y, v) =>
         @set x, y, v, edit.shuttles.get x, y
     @editStop to
-    @draw()
+    @drawAll()
 
   redo: -> @_popStack @redoStack, @undoStack
   undo: -> @_popStack @undoStack, @redoStack
@@ -719,7 +719,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
     @editStop()
     @onEditFinish?()
-    @draw() if changed
+    @drawAll() if changed
 
   clearSelection: ->
     if @selection
@@ -764,11 +764,19 @@ global.Boilerplate = module.exports = class Boilerplate
   #########################
   # DRAWING               #
   #########################
+  drawAll: ->
+    @needsDrawAll = true
+    @draw()
+
   draw: ->
     return if @needsDraw
     @needsDraw = true
     requestAnimationFrame =>
       @needsDraw = false
+
+      if @needsDrawAll
+        @gridRenderer.draw()
+        @needsDrawAll = false
 
       # This is a weird place to do keyboard scrolling, but if we do it in
       # step() it'll only happen once every few hundred ms.
@@ -788,20 +796,10 @@ global.Boilerplate = module.exports = class Boilerplate
         if @updateMousePos()
           @cursorMoved()
 
-      @drawFrame()
-
+      @dctx.clearRect 0, 0, @width, @height
+      @drawGrid()
+      @drawOverlay()
       @draw() if @keysPressed
-
-  drawFrame: ->
-    # ******
-    #@sctx.clearRect 0, 0, @width, @height
-    @dctx.clearRect 0, 0, @width, @height
-
-    @drawGrid()
-
-    @drawOverlay()
-
-    # @ctx.flush?() # for webgl
 
   drawCells: (ctx, points, offset, override) ->
     # Helper to draw blocky cells
@@ -989,7 +987,6 @@ global.Boilerplate = module.exports = class Boilerplate
     #@drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
     #  Boilerplate.colors[v] || 'red'
 
-    @gridRenderer.draw()
 
     if @activeTool is 'move' and !@selection and !@imminentSelect
       bv = @parsed.get 'base', mtx, mty
@@ -1057,10 +1054,7 @@ global.Boilerplate = module.exports = class Boilerplate
       @dctx.textAlign = 'center'
       @dctx.fillText text, px + size/2, py + size/2
 
-
-
-
-    @draw() #if t != 1 and needsRedraw
+    @draw() if t != 1 and needsRedraw
     return
 
   drawOverlay: ->
