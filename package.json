@@ -18,7 +18,9 @@
     "level": "*",
     "ws": "*"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "glify": "^0.5.1"
+  },
   "optionalDependencies": {},
   "engines": {
     "node": "*"

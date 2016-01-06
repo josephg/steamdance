@@ -96,7 +96,7 @@ bp.onEditFinish = save = ->
     console.log 'removing', worldName
     localStorage.removeItem "worldv2 #{worldName}"
   else
-    # console.log 'saving', worldName
+    console.log 'saving', worldName
     localStorage.setItem "worldv2 #{worldName}", JSON.stringify grid
 
 setInterval save, 15000
@@ -225,7 +225,7 @@ toImage = ->
     {x, y} = util.parseXY k
     sv = json.shuttles[k]
     x -= l; y -= t
-    
+
     offs = x + (x-(x%3))/3 + y*w/3*4
     data[offs] = toByte(v, sv)
     #console.log offs, data[offs]
@@ -283,8 +283,7 @@ imageToJSON = (uri, offx, offy, callback) ->
         if sv
           data.shuttles[k] = sv
       #console.log i, b, [x, y], [x+offx, y+offy], [v, sv]
-        
+
     callback null, data
   img.onerror = (e) -> callback Error e.stack
   return
-

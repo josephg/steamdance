@@ -69,6 +69,7 @@ addModules = (jit) ->
   jit.modules.prevState = prevState
 
 
+
 line = (x0, y0, x1, y1, f) ->
   dx = Math.abs x1-x0
   dy = Math.abs y1-y0
@@ -347,6 +348,7 @@ global.Boilerplate = module.exports = class Boilerplate
   setJSONGrid: (json) ->
     @parsed = Jit json
     addModules @parsed
+    @gridRenderer.addModules @parsed
     @currentEdit = null
     @undoStack.length = @redoStack.length = 0
     @draw()
@@ -363,8 +365,6 @@ global.Boilerplate = module.exports = class Boilerplate
     @currentEdit = null
     @undoStack = []
     @redoStack = []
-
-    @setJSONGrid @options.grid
 
     @view = new View @el.offsetWidth, @el.offsetHeight, @options
 
@@ -383,7 +383,9 @@ global.Boilerplate = module.exports = class Boilerplate
 
     @el.boilerplate = this
 
-    @gridRenderer = new GLRenderer @gridCanvas, @parsed
+    @gridRenderer = new GLRenderer @gridCanvas, @view
+
+    @setJSONGrid @options.grid
 
     #@el.onresize = -> console.log 'yo'
 
@@ -400,18 +402,17 @@ global.Boilerplate = module.exports = class Boilerplate
     # ----- Event handlers
 
     @view.watch.forward ({@width, @height}) =>
-      console.log "resized to #{@width}x#{@height}"
+      #console.log "resized to #{@width}x#{@height}"
 
-      @dynCanvas.width = @gridCanvas.width = @width * devicePixelRatio
-      @dynCanvas.height = @gridCanvas.height = @height * devicePixelRatio
+      @dynCanvas.width = @width * devicePixelRatio
+      @dynCanvas.height = @height * devicePixelRatio
       # I'm not sure why this is needed?
       #@dynCanvas.style.width = @gridCanvas.style.width = @width + 'px'
       #@dynCanvas.style.height = @gridCanvas.style.height = @height + 'px'
-      
-      # XXXXX
-      @sctx = @gridCanvas.getContext '2d'
-      @sctx.scale devicePixelRatio, devicePixelRatio
-      
+
+      #@sctx = @gridCanvas.getContext '2d'
+      #@sctx.scale devicePixelRatio, devicePixelRatio
+
       @dctx = @dynCanvas.getContext '2d'
       @dctx.scale devicePixelRatio, devicePixelRatio
 
@@ -462,7 +463,6 @@ global.Boilerplate = module.exports = class Boilerplate
         @draggedShuttle = null
 
       #@compile() if @needsCompile
-
       if @mouse.mode is 'select'
         @selection = @copySubgrid enclosingRect @selectedA, @selectedB
         @selectOffset =
@@ -745,7 +745,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
     e.clipboardData.setData 'text', JSON.stringify json
     #console.log JSON.stringify json
-    
+
     e.preventDefault()
 
   paste: (e) ->
@@ -790,11 +790,11 @@ global.Boilerplate = module.exports = class Boilerplate
 
       @drawFrame()
 
-      @draw() #if @keysPressed
+      @draw() if @keysPressed
 
   drawFrame: ->
     # ******
-    @sctx.clearRect 0, 0, @width, @height
+    #@sctx.clearRect 0, 0, @width, @height
     @dctx.clearRect 0, 0, @width, @height
 
     @drawGrid()
@@ -979,15 +979,15 @@ global.Boilerplate = module.exports = class Boilerplate
       ((exact * @view.size)|0) / @view.size
     else
       1
-    
+
     # Mouse position
     mx = @mouse.x; my = @mouse.y
     {tx:mtx, ty:mty, tc:mtc} = @view.screenToWorldCell mx, my, @parsed
     hover = {}
 
     # Draw the grid
-    @drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
-      Boilerplate.colors[v] || 'red'
+    #@drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
+    #  Boilerplate.colors[v] || 'red'
 
     @gridRenderer.draw()
 
@@ -1019,14 +1019,14 @@ global.Boilerplate = module.exports = class Boilerplate
     #console.log hover if hover
 
     # Draw pressure
-    @drawCells @dctx, @parsed.baseGrid, (tx, ty, v) =>
-      if v in ['nothing', 'thinsolid', 'thinshuttle'] or util.insNum(v) != -1
-        group = @parsed.modules.groups.get tx, ty, 0
-        zone = @parsed.modules.zones.getZoneForGroup(group) if group
-        if zone?.pressure
-          return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
-        else
-          return null
+    # @drawCells @dctx, @parsed.baseGrid, (tx, ty, v) =>
+    #   if v in ['nothing', 'thinsolid', 'thinshuttle'] or util.insNum(v) != -1
+    #     group = @parsed.modules.groups.get tx, ty, 0
+    #     zone = @parsed.modules.zones.getZoneForGroup(group) if group
+    #     if zone?.pressure
+    #       return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
+    #     else
+    #       return null
 
     # Draw the shuttles
     @parsed.modules.shuttles.forEach (shuttle) =>
@@ -1060,7 +1060,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
 
 
-    @draw() if t != 1 and needsRedraw
+    @draw() #if t != 1 and needsRedraw
     return
 
   drawOverlay: ->
