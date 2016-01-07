@@ -91,7 +91,7 @@ line = (x0, y0, x1, y1, f) ->
 
 global.Boilerplate = module.exports = class Boilerplate
   @colors =
-    bridge: 'hsl(208, 78%, 47%)'
+    bridge: 'rgb(26, 126, 213)'
     # bridge: 'hsl(216, 92%, 33%)'
     # thinbridge: 'hsl(203, 67%, 51%)'
     negative: 'hsl(16, 68%, 50%)'
@@ -102,8 +102,8 @@ global.Boilerplate = module.exports = class Boilerplate
     thinshuttle: 'hsl(283, 89%, 75%)'
     thinsolid: 'hsl(0, 0%, 71%)'
     interface: 'hsl(44, 87%, 52%)'
-    ribbon: 'hotpink'
-    ribbonbridge: 'pink'
+    ribbon: 'rgb(185, 60, 174)'
+    ribbonbridge: 'rgb(108, 30, 217)'
   # These colors are pretty ugly but they'll do for now. Maybe just 1 color but
   # with numbers drawn on the cell?
   @colors["ins#{i}"] = "hsl(188, #{24 + 6 * i}%, #{43 - 2*i}%)" for i in [1..8]
@@ -260,6 +260,9 @@ global.Boilerplate = module.exports = class Boilerplate
     @parsed = Jit json
     addModules @parsed
     @gridRenderer.addModules @parsed
+    @parsed.modules.shuttles.deleteWatch.on (s) =>
+      @draggedShuttle = null if s is @draggedShuttle?.shuttle
+
     @currentEdit = null
     @undoStack.length = @redoStack.length = 0
     @drawAll()
@@ -686,6 +689,7 @@ global.Boilerplate = module.exports = class Boilerplate
       @needsDraw = false
 
       if @needsDrawAll
+        @parsed.modules.shuttles.flush()
         @gridRenderer.draw()
         @needsDrawAll = false
 
