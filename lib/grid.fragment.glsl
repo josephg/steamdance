@@ -1,15 +1,15 @@
 precision mediump float;
-
 uniform sampler2D tile;
-uniform sampler2D pressure;
-
-uniform highp int psize;
-
 varying vec2 tilexy;
 
 void main(void) {
   ivec3 v = ivec3(texture2D(tile, tilexy) * 256.0);
   int t = v.r;
+  bool neg = (t >= 0x80);
+  if (neg) t -= 0x80;
+
+  bool pos = (t >= 0x40);
+  if (pos) t -= 0x40;
 
   vec4 color =
     (t == 0) ? // solid
@@ -27,13 +27,10 @@ void main(void) {
     :
       vec4(1,0,0,1);
 
-  highp int pid = v.g * 256 + v.b;
-  int p = (pid == 0) ? 0 : int(texture2D(pressure, vec2(float(pid) / float(psize))).r * 256.0);
-
-  gl_FragColor = (p == 0) ? color :
-    (p == 1) ? color * 0.8 + vec4(0.2, 0, 0, 0.2) :
-    (p == 2) ? color * 0.8 + vec4(0, 0.2, 0, 0.2) :
-    vec4(1,0,0,1);
+  gl_FragColor =
+    neg ? color * 0.8 + vec4(0.2, 0, 0, 0.2) :
+    pos ? color * 0.8 + vec4(0, 0.2, 0, 0.2) :
+    color;
 
   // gl_FragColor = vec4(tilexy.xyx, 1);
 }
