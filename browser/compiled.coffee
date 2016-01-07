@@ -97,10 +97,12 @@ bpromise.then (bp) ->
   setInterval save, 15000
 
 window.addEventListener 'keypress', (e) ->
-  #console.log e.keyCode
+  # console.log e.keyCode, e.key, e.which
+
+  # Space - which doesn't work with e.keyCode on firefox. :p
+  setRunning !running if e.keyCode is 32 or e.which is 32
+
   switch e.keyCode
-    when 32 # space
-      setRunning !running
     when 13 # enter
       bpromise.then -> bp.step()
 
