@@ -5,7 +5,7 @@ assert = require 'assert'
 {letsShuttleThrough, layerOf, lerp, clamp} = require './util'
 View = require './view'
 
-{default: GLRenderer} = require './gl2'
+{default: GLRenderer} = require './gl'
 
 # {WebGLContext} = require './gl'
 
