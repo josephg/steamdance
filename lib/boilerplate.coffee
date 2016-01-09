@@ -160,7 +160,7 @@ global.Boilerplate = module.exports = class Boilerplate
           # Fill the entire selection with the selected brush
           for x in [0...@selection.tw]
             for y in [0...@selection.th]
-              if newTool is 'nothing'
+              if newTool is 'solid'
                 @selection.base.delete x, y
                 @selection.shuttles.delete x, y
               else if newTool in ['shuttle', 'thinshuttle']
@@ -690,6 +690,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
       if @needsDrawAll
         @parsed.modules.shuttles.flush()
+        # @parsed.modules.engines.flush()
         @gridRenderer.draw()
         @needsDrawAll = false
 
@@ -943,6 +944,7 @@ global.Boilerplate = module.exports = class Boilerplate
     # Draw the shuttles
     @parsed.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t, hover.shuttle == shuttle
+    # needsRedraw = true
 
     if hover.points then @drawCells @dctx, hover.points, 'rgba(100,100,100,0.3)'
 
