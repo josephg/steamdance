@@ -4,22 +4,20 @@
   "description": "A multiplayer steam-based CPU simulator",
   "version": "0.0.0",
   "repository": {
-    "url": ""
+    "url": "https://github.com/josephg/boilerplate"
   },
   "main": "server.coffee",
   "dependencies": {
     "babel-preset-es2015": "^6.3.13",
     "babelify": "^7.2.0",
-    "boilerplate-jit": "*",
-    "boilerplate-sim": "^1.0.3",
+    "boilerplate-jit": "^1.0.0",
     "browserify": "^6.0.3",
-    "coffeeify": "^0.7.0",
-    "express": "*",
-    "level": "*",
-    "ws": "*"
+    "coffeeify": "^0.7.0"
   },
   "devDependencies": {
-    "glify": "^0.5.1"
+    "coffeeify": "^0.7.0",
+    "glify": "^0.5.1",
+    "watchify": "^3.6.1"
   },
   "optionalDependencies": {},
   "engines": {
