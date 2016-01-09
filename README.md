@@ -7,20 +7,27 @@ Boilerplate is a steam powered computery thing.
 
 [Try it out yourself!](https://josephg.com/boilerplate/)
 
+> **Note:** This repo is a giant mess. Sorry :/. It needs a big cleanup.
+
 This repository contains the boilerplate web library and 3 working examples of
 its use:
 
-- A boilerplate client / server for collaborative editing of your funny computers
 - An in-browser editor which saves everything you make to localstorage. You can
-  [mess around with that online](https://josephg.com/boilerplate/).
+  [mess around with that online](https://josephg.com/boilerplate/). This is in `browser/`
+- A boilerplate client / server for collaborative editing of your funny
+  computers. **This is probably broken at the moment.**
 - Embedded boilerplate, for putting little bundles of puzzly love inline in a
   webpage.
 
 The boilerplate simulator [lives in its own
-repository](https://github.com/josephg/boilerplate-sim). There's also a [boilerplate compiler](https://github.com/josephg/boilerplate-compiler) to take boilerplate programs and produce runnable javascript.
+repository](https://github.com/josephg/boilerplate-sim). There's also a
+[boilerplate compiler](https://github.com/josephg/boilerplate-compiler) to take
+boilerplate programs and produce runnable javascript. But the current runtime compiler is [the JIT compiler](https://github.com/josephg/boilerplate-jit), which does just-in-time parsing and traversal.
 
 
 ## Running the server
+
+> BZZZZT WRONG THIS IS ALL BROKEN OH GOD THIS IS WHY I CAN'T HAVE NICE THINGS
 
 Boilerplate's main implementation is the collaborative client-server
 environment where you can mess around with steam power. All worlds are
