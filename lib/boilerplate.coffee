@@ -888,9 +888,11 @@ global.Boilerplate = module.exports = class Boilerplate
     # For animating shuttle motion
     t = if @animTime && @lastStepAt
       now = Date.now()
-      exact = Math.min 1, (now - @lastStepAt) / @animTime
+      exact = (now - @lastStepAt) / @animTime
 
-      ((exact * @view.size)|0) / @view.size
+      # This makes the shuttles always draw at exact pixel boundaries
+      Math.min 1, ((exact * @view.size)|0) / @view.size
+      # Math.min 1, exact
     else
       1
 

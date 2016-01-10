@@ -23,7 +23,9 @@ module.exports = class View
 
     @zoomLevel += diff
     @zoomLevel = clamp @zoomLevel, 1/20, 5
-    @size = Math.floor 20 * @zoomLevel
+
+    # @size = Math.floor 20 * @zoomLevel
+    @size = 20 * @zoomLevel
 
     # Recenter
     if center?
