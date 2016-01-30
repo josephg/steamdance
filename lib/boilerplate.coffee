@@ -191,6 +191,10 @@ global.Boilerplate = module.exports = class Boilerplate
           else
             @changeTool 'move'
 
+        when 190 # '.'
+          @view.snap @mouse
+          @drawAll()
+
         when 88 # x
           @flip 'x' if @selection
         when 89 # y
