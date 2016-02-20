@@ -126,7 +126,7 @@ function imageToJSON({img, offx, offy}) {
 
     image.onload = function() {
       // var b, canvas, ctx, data, h, i, imageData, j, k, len, ref, ref1, sv, v, w, x, x0, y;
-      console.log('loaded');
+      // console.log('loaded');
       const canvas = document.createElement('canvas');
       const w = canvas.width = image.width;
       const h = canvas.height = image.height;

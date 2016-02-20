@@ -53,7 +53,12 @@ loadGrid = (name) ->
   return db.fromString gridStr # Promise
 
 bpromise = loadGrid(location.hash?[1..] || 'boilerplate').then (grid) ->
-  bp = window.bp = new Boilerplate el, grid: grid, animTime:200, useWebGL:no
+  bp = window.bp = new Boilerplate el,
+    grid: grid
+    animTime:200
+    # initialZoom: 0.1375
+    # initialX: -178.6
+    # initialY: -26.5
 
   el.focus()
   bp.addKeyListener window
