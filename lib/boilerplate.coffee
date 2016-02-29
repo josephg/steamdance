@@ -9,6 +9,8 @@ View = require './view'
 
 # {WebGLContext} = require './gl'
 
+SHUTTLE     = 0x40
+THINSHUTTLE = 0x80
 UP=0; RIGHT=1; DOWN=2; LEFT=3
 fl = Math.floor
 
@@ -248,30 +250,30 @@ global.Boilerplate = module.exports = class Boilerplate
 
   set: (x, y, bv = null, sv = null) ->
     #throw Error "Invalid layer #{layer}" unless !v? or layer == layerOf v
-    bp = @parsed.get('base', x, y) || null
-    sp = @parsed.get('shuttles', x, y) || null
+    bp = @jit.get('base', x, y) || null
+    sp = @jit.get('shuttles', x, y) || null
     return false if bv == bp and sp == sv # js double equals would be perfect here
     if @currentEdit and !@currentEdit.base.has x, y
       @currentEdit.base.set x, y, bp
       @currentEdit.shuttles.set x, y, sp
 
-    @parsed.set x, y, bv, sv
+    @jit.set x, y, bv, sv
     return true
 
   resetView: -> @view.reset @options
 
   setJSONGrid: (json) ->
-    @parsed = Jit json
-    addModules @parsed
-    @gridRenderer.addModules @parsed
-    @parsed.modules.shuttles.deleteWatch.on (s) =>
+    @jit = Jit json
+    addModules @jit
+    @gridRenderer.addModules @jit
+    @jit.modules.shuttles.deleteWatch.on (s) =>
       @draggedShuttle = null if s is @draggedShuttle?.shuttle
 
     @currentEdit = null
     @undoStack.length = @redoStack.length = 0
     @drawAll()
 
-  getJSONGrid: -> @parsed.toJSON()
+  getJSONGrid: -> @jit.toJSON()
 
   constructor: (@el, @options) ->
     @keysPressed = 0 # bitmask. up=1, right=2, down=4, left=8
@@ -341,7 +343,7 @@ global.Boilerplate = module.exports = class Boilerplate
       # If the mouse is released / pressed while not in the box, handle that correctly
       @el.onmousedown e if e.button && !@mouse.mode
       @cursorMoved() if @updateMousePos e
-      @draw() if @mouse and @parsed.get 'base', @mouse.tx, @mouse.ty
+      @draw() if @mouse and @jit.get 'base', @mouse.tx, @mouse.ty
 
     @el.onmousedown = (e) =>
       @updateMousePos e
@@ -355,7 +357,7 @@ global.Boilerplate = module.exports = class Boilerplate
         @stamp()
       else
         if @activeTool is 'move'
-          if (shuttle = @parsed.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty)
+          if (shuttle = @jit.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty)
             # Grab that sucker!
             #console.log shuttle
 
@@ -430,7 +432,7 @@ global.Boilerplate = module.exports = class Boilerplate
     if e
       @mouse.x = clamp e.offsetX ? e.layerX, 0, @el.offsetWidth - 1
       @mouse.y = clamp e.offsetY ? e.layerY, 0, @el.offsetHeight - 1
-    {tx, ty, tc} = @view.screenToWorldCell @mouse.x, @mouse.y, @parsed
+    {tx, ty, tc} = @view.screenToWorldCell @mouse.x, @mouse.y, @jit
 
     if tx != @mouse.tx || ty != @mouse.ty || tc != @mouse.tc
       @mouse.tx = tx; @mouse.ty = ty; @mouse.tc = tc
@@ -453,7 +455,7 @@ global.Boilerplate = module.exports = class Boilerplate
       if @activeTool is 'move' and !@imminentSelect
         if @draggedShuttle
           '-webkit-grabbing'
-        else if @parsed.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty
+        else if @jit.modules.shuttleGrid.getShuttle @mouse.tx, @mouse.ty
           '-webkit-grab'
         else
           'default'
@@ -480,7 +482,7 @@ global.Boilerplate = module.exports = class Boilerplate
       # @activeTool is null for solid.
 
       if @activeTool in ['shuttle', 'thinshuttle']
-        bv = @parsed.get 'base', x, y
+        bv = @jit.get 'base', x, y
         bv = 'nothing' unless letsShuttleThrough bv
         @set x, y, bv, @activeTool
       else
@@ -489,12 +491,12 @@ global.Boilerplate = module.exports = class Boilerplate
 
   step: ->
     # Only redraw if step did something.
-    @parsed.modules.stepWatch.signal 'before'
-    if @parsed.step()
+    @jit.modules.stepWatch.signal 'before'
+    if @jit.step()
       @lastStepAt = Date.now()
       @drawAll()
       @updateCursor()
-    @parsed.modules.stepWatch.signal 'after'
+    @jit.modules.stepWatch.signal 'after'
 
   moveShuttle: (sid, from, to) ->
     throw Error 'blerk'
@@ -509,32 +511,28 @@ global.Boilerplate = module.exports = class Boilerplate
     wantedDx = tx - heldPoint.x
     wantedDy = ty - heldPoint.y
 
-    states = @parsed.modules.shuttleStates.get shuttle
+    states = @jit.modules.shuttleStates.get shuttle
 
     # First find the closest existing state to the mouse.
-    minDist = null
-    bestState = null
+    bestState = shuttle.currentState
 
-    dist2 = (dx, dy) -> dx*dx+dy*dy
+    # We'll just do a dumb beam search here. Previously we scanned all the
+    # shuttle's states to find a good one but with that its possible to make
+    # one shuttle hop over another one by dragging.
+    {shuttleStates, shuttleOverlap} = @jit.modules
 
-    states.forEach (dx, dy, state) ->
-      if state.valid
-        d = dist2 wantedDx-dx, wantedDy-dy
-        if !bestState or d < minDist
-          bestState = state
-          minDist = d
-
-    # Ok, we've found the *closest* state. Lets see if we can do better by
-    # making some more states until we get there. We'll do a dumb beam search
-    getStateNear = @parsed.modules.shuttleStates.getStateNear.bind(@parsed.modules.shuttleStates)
-    while (bestState.dx != wantedDx || bestState.dy != wantedDy)
-      next = null
+    while bestState.dx != wantedDx || bestState.dy != wantedDy
       distX = wantedDx - bestState.dx
       distY = wantedDy - bestState.dy
-      if distX < 0 then next = getStateNear bestState, LEFT
-      if !next && distX > 0 then next = getStateNear bestState, RIGHT
-      if !next && distY < 0 then next = getStateNear bestState, UP
-      if !next && distY > 0 then next = getStateNear bestState, DOWN
+
+      next = null
+      tryMove = (dir) ->
+        return if next
+        next = shuttleStates.getStateNear bestState, dir
+        next = null if shuttleOverlap.willOverlap shuttle, next
+
+      if distX < 0 then tryMove LEFT else if distX > 0 then tryMove RIGHT
+      if distY < 0 then tryMove UP   else if distY > 0 then tryMove DOWN
 
       if next
         bestState = next
@@ -542,7 +540,7 @@ global.Boilerplate = module.exports = class Boilerplate
         break
 
     if shuttle.currentState != bestState
-      @parsed.moveShuttle shuttle, bestState
+      @jit.moveShuttle shuttle, bestState
       @drawAll() # Need to redraw the background to update pressure.
 
 
@@ -587,9 +585,9 @@ global.Boilerplate = module.exports = class Boilerplate
 
     for y in [ty...ty+th]
       for x in [tx...tx+tw]
-        if v = @parsed.get 'base', x, y
+        if v = @jit.get 'base', x, y
           subgrid.base.set x-tx, y-ty, v
-        if v = @parsed.get 'shuttles', x, y
+        if v = @jit.get 'shuttles', x, y
           subgrid.shuttles.set x-tx, y-ty, v
 
     #console.log subgrid
@@ -693,8 +691,8 @@ global.Boilerplate = module.exports = class Boilerplate
       @needsDraw = false
 
       if @needsDrawAll
-        @parsed.modules.shuttles.flush()
-        # @parsed.modules.engines.flush()
+        @jit.modules.shuttles.flush()
+        # @jit.modules.engines.flush()
         @gridRenderer.draw()
         @needsDrawAll = false
 
@@ -743,6 +741,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
   # Draw a path around the specified blob edge. The edge should be a Set3 of (x,y,dir).
   pathAroundEdge: (ctx, edge, border, pos) ->
+    #console.log edge.inspect()
     if pos
       {sx, sy} = pos
     else
@@ -812,7 +811,7 @@ global.Boilerplate = module.exports = class Boilerplate
 
   drawShuttle: (shuttle, t, isHovered) ->
     # First get bounds - we might not even be able to display the shuttle.
-    if (prevState = @parsed.modules.prevState.get shuttle) and
+    if (prevState = @jit.modules.prevState.get shuttle) and
         shuttle isnt @draggedShuttle?.shuttle
       sx = lerp t, prevState.dx, shuttle.currentState.dx
       sy = lerp t, prevState.dy, shuttle.currentState.dy
@@ -838,7 +837,8 @@ global.Boilerplate = module.exports = class Boilerplate
     size4 = (@view.size/4)|0
     @dctx.lineWidth = size4 * 2 # An even number.
     shuttle.points.forEach (x, y, v) =>
-      return if v is 'shuttle'
+      v = util.shuttleStr v
+      return if v & SHUTTLE
 
       # base x, y of the tile
       {px, py} = @view.worldToScreen x+sx, y+sy
@@ -902,20 +902,20 @@ global.Boilerplate = module.exports = class Boilerplate
 
     # Mouse position
     mx = @mouse.x; my = @mouse.y
-    {tx:mtx, ty:mty, tc:mtc} = @view.screenToWorldCell mx, my, @parsed
+    {tx:mtx, ty:mty, tc:mtc} = @view.screenToWorldCell mx, my, @jit
     hover = {}
 
     # Draw the grid
-    #@drawCells @sctx, @parsed.baseGrid, (tx, ty, v) ->
+    #@drawCells @sctx, @jit.baseGrid, (tx, ty, v) ->
     #  Boilerplate.colors[v] || 'red'
 
 
     if @activeTool is 'move' and !@selection and !@imminentSelect
-      bv = @parsed.get 'base', mtx, mty
-      sv = @parsed.get 'shuttles', mtx, mty
+      bv = @jit.get 'base', mtx, mty
+      sv = util.shuttleStr @jit.get 'shuttles', mtx, mty
       # What is the mouse hovering over? For better or worse, this relies
       # heavily uses the parser internals.
-      modules = @parsed.modules
+      modules = @jit.modules
 
       # hover.engines = new Set
       # hover.shuttles = new Set
@@ -926,29 +926,29 @@ global.Boilerplate = module.exports = class Boilerplate
         @drawEngine engine, t
 
       if sv != 'shuttle' and bv and
-            (contents = @parsed.getZoneContents mtx, mty, mtc)
+            (contents = @jit.getZoneContents mtx, mty, mtc)
         hover.points = contents.points
         hover.pressure = 0
         contents.engines.forEach (e) =>
           hover.pressure += e.pressure
           @drawEngine e, t
 
-      # hover.zone = if hover.group then @parsed.modules.zones.getZoneForGroup hover.group
+      # hover.zone = if hover.group then @jit.modules.zones.getZoneForGroup hover.group
 
     #console.log hover if hover
 
     # Draw pressure
-    # @drawCells @dctx, @parsed.baseGrid, (tx, ty, v) =>
+    # @drawCells @dctx, @jit.baseGrid, (tx, ty, v) =>
     #   if v in ['nothing', 'thinsolid', 'thinshuttle'] or util.insNum(v) != -1
-    #     group = @parsed.modules.groups.get tx, ty, 0
-    #     zone = @parsed.modules.zones.getZoneForGroup(group) if group
+    #     group = @jit.modules.groups.get tx, ty, 0
+    #     zone = @jit.modules.zones.getZoneForGroup(group) if group
     #     if zone?.pressure
     #       return if zone?.pressure < 0 then 'rgba(255,0,0,0.2)' else 'rgba(0,255,0,0.2)'
     #     else
     #       return null
 
     # Draw the shuttles
-    @parsed.modules.shuttles.forEach (shuttle) =>
+    @jit.modules.shuttles.forEach (shuttle) =>
       needsRedraw = true if @drawShuttle shuttle, t, hover.shuttle == shuttle
     # needsRedraw = true
 
@@ -1015,6 +1015,7 @@ global.Boilerplate = module.exports = class Boilerplate
             {px, py} = @view.worldToScreen x+mtx-@selectOffset.tx, y+mty-@selectOffset.ty
             if px+size >= 0 and px < @width and py+size >= 0 and py < @height
               v = @selection.shuttles.get(x, y) or @selection.base.get(x, y)
+              if typeof v is 'number' then v = util.shuttleStr v
               @dctx.fillStyle = (if v then Boilerplate.colors[v] else Boilerplate.colors['solid']) or 'red'
               @dctx.fillRect px, py, size, size
         @dctx.strokeStyle = 'rgba(0,255,255,0.5)'
@@ -1026,7 +1027,7 @@ global.Boilerplate = module.exports = class Boilerplate
           @dctx.fillStyle = Boilerplate.colors[@activeTool ? 'solid'] || 'red'
           @dctx.fillRect mpx + size/4, mpy + size/4, size/2, size/2
 
-          @dctx.strokeStyle = if @parsed.get('base', mtx, mty) then 'black' else 'white'
+          @dctx.strokeStyle = if @jit.get('base', mtx, mty) then 'black' else 'white'
           @dctx.strokeRect mpx + 1, mpy + 1, size - 2, size - 2
 
 
