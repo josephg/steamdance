@@ -1,12 +1,12 @@
 import {util} from 'boilerplate-jit';
-import assert from 'assert'
+import assert from 'assert';
 
 export function fromString(str) {
   let grid;
 
   if (str != '') try {
     grid = JSON.parse(str);
-    if (grid) console.log('loaded');
+    if (grid) console.log(`loaded ${str.length} bytes`);
   } catch(e) {
     console.error("Error reading JSON:", e);
     return Promise.reject(e);
@@ -37,89 +37,48 @@ function isEmpty(obj) {
 
 const VTOI = {};
 const ITOV = [
-  'solid',
-  'nothing', 'thinsolid',
-  'positive', 'negative',
-  'bridge',
-  'ribbon', 'ribbonbridge'
+  'solid', // 0
+  'nothing', 'thinsolid', // 1, 2
+  'positive', 'negative', // 3, 4
+  'bridge', // 5
+  'ribbon', 'ribbonbridge' // 6, 7
 ];
+
 ITOV[64] = 'shuttle';
 ITOV[128] = 'thinshuttle';
 
 (() => {
   for (let i = 0; i < 16; i++) {
-    ITOV[i + 32] = "ins" + (i+1); // 32 -> 63.
+    ITOV[i + 32] = "ins" + (i+1); // 32 to 63.
   }
   ITOV.forEach((v, i) => {VTOI[v] = i;});
 })();
 
-function toByte(v, sv) {
-  return VTOI[v] | (sv != null ? VTOI[sv] : 0);
-};
-
-function JSONToImage(grid) {
-  if (isEmpty(grid.base)) {
-    return {base:{}, shuttles:{}};
-  }
-
-  const MAX = Number.MAX_SAFE_INTEGER;
-  let l = MAX, r = -MAX, t = MAX, b = -MAX;
-  for (let k in grid.base) {
-    const v = grid.base[k];
-    const xy = util.parseXY(k), x = xy.x, y = xy.y;
-    if (x < l) l = x;
-    if (x > r) r = x;
-    if (y < t) t = y;
-    if (y > b) b = y;
-  }
-
-  let w = r - l;
-  w = w - (w % 3) + 3; // Round up to the nearest multiple of 3.
-  const h = b - t + 1;
-
-  // console.log(w, h);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w / 3; canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  const imageData = ctx.createImageData(w / 3, h);
-
-  const data = imageData.data;
-  // Set the image to be opaque.
-  for (let i = 3; i < data.length; i += 4) data[i] = 255;
-
-  for (let k in grid.base) {
-    const v = grid.base[k];
-    const sv = grid.shuttles[k];
-
-    const xy = util.parseXY(k)
-    const x = xy.x - l, y = xy.y - t;
-
-    const offs = x + (x - (x % 3)) / 3 + y * w / 3 * 4;
-    data[offs] = toByte(v, sv);
-  }
-
-  // console.log(imageData.data);
-  ctx.putImageData(imageData, 0, 0);
-
-  return {
-    offx: l,
-    offy: t,
-    img: canvas.toDataURL()
-  };
+function normalizeShuttle(sv) {
+  return sv == null ? 0 :
+    typeof(sv) === 'string' ? VTOI[sv] :
+    sv;
 }
 
-// Convert back from a byte to [value, shuttle value].
-function fromByte(b) {
-  const sv = (b & VTOI.shuttle) ? 'shuttle' :
-    (b & VTOI.thinshuttle) ? 'thinshuttle' : null;
-  const v = ITOV[b & 0x3f];
+assert.equal(normalizeShuttle(null), 0);
+assert.equal(normalizeShuttle(undefined), 0);
+assert.equal(normalizeShuttle('shuttle'), 64);
+assert.equal(normalizeShuttle('thinshuttle'), 128);
+assert.equal(normalizeShuttle(128), 128);
 
-  assert(v != null);
-  return [v, sv];
-};
+function imageToJSON(data) {
+  const legacy = require('./db_legacy');
+  switch(data.v) {
+    case null: case undefined:
+      return legacy.imageToJSONv1(data);
+    case 2:
+      return imageToJSONv2(data);
+    default:
+      throw Error(`Cannot parse v${data.v} world data with this version of boilerplate`);
+  }
+}
 
-function imageToJSON({img, offx, offy}) {
+function imageToJSONv2({img, offx, offy}) {
   return new Promise((resolve, reject) => {
     const image = new Image;
     image.src = img;
@@ -136,28 +95,25 @@ function imageToJSON({img, offx, offy}) {
       const data = imageData.data;
       // console.log(imageData.data);
 
-      // console.log(w * 3, h, offx, offy);
+      // console.log(w, h, offx, offy);
 
       const grid = {
         base: {},
         shuttles: {}
       };
 
-      for (let i = 0; i < data.length; i++) {
-        if (i % 4 === 3) continue; // The image is opaque. No data there.
-
-        const b = data[i];
+      for (let i = 0; i < data.length; i += 4) {
         // Unpack the index.
-        // Past-me is a mystical space wizard.
-        const x0 = i % (w * 4);
-        const x = x0 - (x0 - (x0 % 4)) / 4;
-        const y = (i / (w * 4)) | 0;
+        const idx = i/4;
+        const x = idx % w;
+        const y = (idx / w)|0;
 
-        const _ = fromByte(b), v = _[0], sv = _[1];
+        const v = ITOV[data[i]];
+        const sv = data[i+1];
         if (v !== 'solid') {
-          const k = (x + offx) + "," + (y + offy);
+          const k = `${x+offx},${y+offy}`;
           grid.base[k] = v;
-          if (sv) {
+          if (sv !== 0) {
             grid.shuttles[k] = sv;
           }
         }
@@ -168,8 +124,64 @@ function imageToJSON({img, offx, offy}) {
       reject(e);
     };
   });
-};
+}
 
+function JSONToImage(grid) {
+  if (isEmpty(grid.base)) {
+    return {base:{}, shuttles:{}}; // Its a bit gross doing this here.
+  }
+
+  const MAX = Number.MAX_SAFE_INTEGER;
+  let l = MAX, r = -MAX, t = MAX, b = -MAX;
+  for (let k in grid.base) {
+    const v = grid.base[k];
+    const xy = util.parseXY(k), x = xy.x, y = xy.y;
+    if (x < l) l = x;
+    if (x > r) r = x;
+    if (y < t) t = y;
+    if (y > b) b = y;
+  }
+
+  const w = r - l + 1;
+  const h = b - t + 1;
+
+  // console.log(w, h);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(w, h);
+
+  const data = imageData.data;
+  // Make the image opaque.
+  for (let i = 3; i < data.length; i += 4) data[i] = 255;
+
+  for (let k in grid.base) {
+    const v = grid.base[k];
+    const sv = grid.shuttles[k];
+
+    const xy = util.parseXY(k)
+    const x = xy.x - l, y = xy.y - t;
+
+    const offs = (x + y * w) * 4
+
+    // Red channel for base, green channel for shuttles.
+    data[offs] = VTOI[v];
+    data[offs+1] = normalizeShuttle(sv);
+  }
+
+  // console.log(imageData.data);
+  ctx.putImageData(imageData, 0, 0);
+
+  // window.location = canvas.toDataURL();
+
+  return {
+    v: 2,
+    offx: l,
+    offy: t,
+    img: canvas.toDataURL()
+  };
+}
 
 function checkConversion(grid) {
   const data = JSONToImage(grid);

@@ -117,13 +117,16 @@ worldLabel.onkeydown = (e) ->
     worldLabel.blur()
 
 worldLabel.onchange = (e) ->
+  # console.log 'onchange'
   worldLabel.blur()
-
-worldLabel.oninput = (e) ->
   loadGrid(worldLabel.value).then (grid) ->
     reset grid
 
+# worldLabel.oninput = (e) ->
+#   console.log 'oninput'
+
 worldLabel.onkeydown = (e) ->
+  # console.log 'onkeydown'
   e.cancelBubble = true
 
 window.onhashchange = ->
