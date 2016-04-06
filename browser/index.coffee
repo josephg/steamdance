@@ -1,4 +1,4 @@
-Boilerplate = require '../lib/boilerplate.coffee'
+Boilerplate = require '../lib/boilerplate'
 modules = require './modules'
 {util} = require 'boilerplate-jit'
 assert = require 'assert'

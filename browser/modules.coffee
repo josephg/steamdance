@@ -1,5 +1,5 @@
 {util} = require 'boilerplate-jit'
-Boilerplate = require '../lib/boilerplate.coffee'
+Boilerplate = require '../lib/boilerplate'
 fl = Math.floor
 
 moduleData = []
