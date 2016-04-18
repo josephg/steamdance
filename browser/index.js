@@ -72,9 +72,10 @@ const bpromise = loadGrid(hashName()).then(grid => {
   const bp = window.bp = new Boilerplate(el, {
     grid: grid,
     animTime: 200,
-    // initialZoom: 0.1375
-    // initialX: -178.6
-    // initialY: -26.5
+
+    // initialZoom: 0.1375,
+    // initialX: -178.6,
+    // initialY: -26.5,
   });
   el.focus();
   bp.addKeyListener(window);
@@ -115,7 +116,7 @@ const save = () => bpromise.then(bp => {
     console.log('removing', worldName);
     localStorage.removeItem("worldv2 " + worldName);
   } else {
-    console.log('saving', worldName);
+    // console.log('saving', worldName);
     localStorage.setItem("worldv2 " + worldName, db.toString(grid));
   }
 });
