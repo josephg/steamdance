@@ -61,9 +61,10 @@ const bpromise = loadGrid().then(grid => {
   const bp = window.bp = new Boilerplate(el, {
     grid: grid,
     animTime: 200,
-    // initialZoom: 0.1375
-    // initialX: -178.6
-    // initialY: -26.5
+
+    // initialZoom: 0.1375,
+    // initialX: -178.6,
+    // initialY: -26.5,
   });
   el.focus();
   bp.addKeyListener(window);
@@ -102,7 +103,7 @@ const save = () => bpromise.then(bp => {
       name: worldName
     })
   }).catch(err => console.error(err));
-    // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
+  // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
 });
 
 // Save every 15 seconds, or when an edit is made.
