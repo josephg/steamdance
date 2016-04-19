@@ -74,6 +74,7 @@ const bpromise = loadGrid().then(grid => {
 
 var running = false;
 var timer = null;
+var unsavedMovement = false;
 
 const setRunning = v => {
   document.getElementById('playpanel').className = v ? 'running' : 'stopped';
@@ -82,7 +83,7 @@ const setRunning = v => {
     if (v) {
       playpausebutton.textContent = '||';
       timer = setInterval(() => {
-        bpromise.then(bp => bp.step());
+        bpromise.then(bp => unsavedMovement |= bp.step());
       }, 200);
     } else {
       playpausebutton.textContent = '►';
@@ -93,7 +94,8 @@ const setRunning = v => {
 
 setRunning(false);
 
-const save = () => bpromise.then(bp => {
+const saveNow = () => bpromise.then(bp => {
+  console.log('savenow', Date.now());
   return fetch(location.pathname + '.json', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
@@ -106,10 +108,36 @@ const save = () => bpromise.then(bp => {
   // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
 });
 
+const save = (() => {
+  // Rate limit saving to once every 5 seconds at most!
+  const DELAY = 5000;
+  var last = 0, timer = -1;
+  return () => {
+    const now = Date.now();
+    if (now - last > DELAY) {
+      saveNow();
+      last = now;
+    } else {
+      // Set a timer.
+      if (timer === -1) timer = setTimeout(() => {
+        saveNow();
+        timer = -1;
+        last = Date.now();
+      }, last + DELAY - now);
+    }
+  }
+})();
+
 // Save every 15 seconds, or when an edit is made.
 bpromise.then(bp => {
   bp.onEditFinish = save;
-  // setInterval(save, 15000);
+  // Save every 15 seconds while the world is turning.
+  setInterval(() => {
+    if (unsavedMovement) {
+      save();
+      unsavedMovement = false;
+    }
+  }, 15000);
 });
 
 window.addEventListener('keypress', e => {
