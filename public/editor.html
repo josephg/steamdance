@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<title>Boilerplate</title>
+<title>Steamdance</title>
 <meta charset="utf-8">
-<link href='toolpanel.css' rel='stylesheet' type='text/css'>
-<link href='icon.png' rel='icon' type='image/png'>
+<link href='/toolpanel.css' rel='stylesheet' type='text/css'>
+<link href='/icon.png' rel='icon' type='image/png'>
 <style>
 @font-face {
   font-family: 'Play';
   font-style: normal;
   font-weight: 700;
-  src: local('Play-Bold'), url(Play.woff) format('woff');
+  src: local('Play-Bold'), url(/Play.woff) format('woff');
 }
 
 body, html {
@@ -56,13 +56,19 @@ a {
 /*.topright { top: 0; right: 0; }*/
 .botright { bottom: 0; right: 0; }
 
-#worldlabel {
+#readonly {
+  display: none;
+  color: red;
+}
+
+#worldname {
   color: hsl(42, 95%, 69%);
   margin: 0;
-  padding: 0;
+  padding: 0 0 0 2px;
   border: 0;
   font-size: 1em;
   background-color: transparent;
+  min-width: 20em;
 }
 
 #playpanel {
@@ -161,7 +167,8 @@ a {
 <div id="bp" tabIndex=0 autofocus class="boilerplate"></div>
 
 <div class='overlay topleft'>
-  <span>local/ #</span><input type='text' id='worldlabel' list='worldlist'>
+  <span id='readonly'>READONLY</span>
+  <span>world </span><input type='text' id='worldname'>
   <div id='playpanel'>
     <span id="playpause" title="play (space bar)">►</span>
     <!-- <span id="pause" title="pause (space bar)">||</span> -->
@@ -179,18 +186,6 @@ a {
 <div class='overlay botright'>
   <span><a href="https://github.com/josephg/boilerplate">github</a></span>
 </div>
-<!--
-<style>
-#hackoverlay {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  border: 2px solid red;
-  width: 300px;
-  height: 300px;
-}
-</style>
-<canvas id=hackoverlay></canvas> -->
 
 <div class="toolpanel">
   <div id="move">Move
@@ -210,4 +205,4 @@ a {
 </div>
 
 <datalist id=worldlist></datalist>
-<script src='compiled.js'></script>
+<script src='/editor-compiled.js'></script>

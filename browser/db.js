@@ -1,17 +1,7 @@
 import {util} from 'boilerplate-jit';
 import assert from 'assert';
 
-export function fromString(str) {
-  let grid;
-
-  if (str != '') try {
-    grid = JSON.parse(str);
-    if (grid) console.log(`loaded ${str.length} bytes`);
-  } catch(e) {
-    console.error("Error reading JSON:", e);
-    return Promise.reject(e);
-  }
-
+export function fromData(grid) {
   if (grid && grid.img) {
     // Its an image!
     console.log('Woo! Got an image to load!');
@@ -21,13 +11,12 @@ export function fromString(str) {
   return Promise.resolve(grid || {base:{}, shuttles:{}});
 }
 
-export function toString(grid) {
-  checkConversion(grid);
+export function toData(grid) {
+  // checkConversion(grid);
 
-  const result = JSON.stringify(JSONToImage(grid));
-  // const result = JSON.stringify(grid);
-  console.log("saving " + result.length + " bytes");
-  return result;
+  const json = JSONToImage(grid);
+  // console.log("saving " + result.length + " bytes");
+  return json;
 }
 
 function isEmpty(obj) {
@@ -70,6 +59,7 @@ function imageToJSON(data) {
   const legacy = require('./db_legacy');
   switch(data.v) {
     case null: case undefined:
+      // Probably not needed except during migration from old data.
       return legacy.imageToJSONv1(data);
     case 2:
       return imageToJSONv2(data);
@@ -197,7 +187,7 @@ function checkConversion(grid) {
       const v = grid.shuttles[k], v2 = result.shuttles[k];
       if (v2 !== v) console.log("WHOA! at " + k + " " + v + " " + v2);
     }
-    assert.deepEqual(grid, result);
+    assert.deepEqual(grid.img, result.img);
   }).catch(e => {
     throw e;
   });

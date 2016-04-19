@@ -18,57 +18,46 @@ const isEmpty = (obj) => {
 // It might be worth moving to some little view library for all this. Maybe?
 const el = document.getElementById('bp');
 
-const worldLabel = document.getElementById('worldlabel');
 const playpausebutton = document.getElementById('playpause');
 const stepbutton = document.getElementById('step');
-
-const worldList = document.getElementById('worldlist');
-
-const populate = () => {
-  while (worldList.firstChild) {
-    worldList.removeChild(worldList.firstChild);
-  }
-
-  const worlds = new Set;
-  const r = /^world(?:v2)? (.*)$/;
-  for (var i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    const m = r.exec(k);
-    if (!m) continue;
-
-    const name = m[1];
-    if (worlds.has(name)) continue;
-    worlds.add(name);
-
-    const option = document.createElement('option');
-    option.value = name;
-    worldList.appendChild(option);
-  }
-};
-populate();
+const worldNameLabel = document.getElementById('worldname');
 
 var worldName = null;
+worldNameLabel.onchange = e => {
+  e.target.blur();
+  worldName = e.target.value;
+  save();
+};
 
-const loadGrid = (name) => {
-  worldName = name;
-  console.log("loading " + worldName);
-  location.hash = "#" + worldName;
-  worldLabel.value = worldName;
-
-  // Why am I re-populating the options set every time we load?
-  populate();
+const loadGrid = () => {
+  // We'll actually just fire a request straight at the same URL as the one
+  // we're on.
+  const path = location.pathname + '.json';
+  console.log("loading from " + path);
+  // worldName = name;
+  // worldLabel.value = worldName;
 
   // Load from either version of data, preferring new if they both exist.
   // We'll only save back to the new data slots in local storage.
-  const gridStr = localStorage.getItem("worldv2 " + worldName)
-      || localStorage.getItem("world " + worldName);
 
-  return db.fromString(gridStr); // Returns a promise.
+  return fetch(path, {
+    headers: {'Accept': 'application/json'},
+    credentials: 'same-origin'
+  })
+  .then(res => res.json())
+  .then(grid => {
+    // worldName = grid.name;
+    if (grid.readonly)
+      document.getElementById('readonly').style.display = 'inline'
+
+    const parts = location.pathname.split('/');
+    worldNameLabel.value = worldName = grid.name || parts[parts.length - 1];
+
+    return db.fromData(grid.data)
+  });
 };
 
-const hashName = () => location.hash ? location.hash.slice(1) : 'boilerplate';
-
-const bpromise = loadGrid(hashName()).then(grid => {
+const bpromise = loadGrid().then(grid => {
   const bp = window.bp = new Boilerplate(el, {
     grid: grid,
     animTime: 200,
@@ -103,27 +92,23 @@ const setRunning = v => {
 
 setRunning(false);
 
-const reset = grid => bpromise.then(bp => {
-  bp.setJSONGrid(grid);
-  bp.resetView();
-  setRunning(true);
-});
-
 const save = () => bpromise.then(bp => {
-  const grid = bp.getJSONGrid();
-  if (isEmpty(grid.base) && isEmpty(grid.shuttles)) {
-    console.log('removing', worldName);
-    localStorage.removeItem("worldv2 " + worldName);
-  } else {
-    console.log('saving', worldName);
-    localStorage.setItem("worldv2 " + worldName, db.toString(grid));
-  }
+  return fetch(location.pathname + '.json', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'same-origin',
+    body: JSON.stringify({
+      data: db.toData(bp.getJSONGrid()),
+      name: worldName
+    })
+  }).catch(err => console.error(err));
+    // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
 });
 
 // Save every 15 seconds, or when an edit is made.
 bpromise.then(bp => {
   bp.onEditFinish = save;
-  setInterval(save, 15000);
+  // setInterval(save, 15000);
 });
 
 window.addEventListener('keypress', e => {
@@ -139,29 +124,6 @@ window.addEventListener('keypress', e => {
   }
 });
 
-worldLabel.onkeydown = e => {
-  if (e.keyCode === 27) { // Escape
-    worldLabel.value = worldName;
-    worldLabel.blur();
-  }
-};
-
-worldLabel.onchange = e => {
-  worldLabel.blur();
-  loadGrid(worldLabel.value).then(grid => reset(grid));
-};
-
-// Don't also propogate to boilerplate underneath.
-worldLabel.onkeydown = e => e.cancelBubble = true;
-
-window.onhashchange = () => {
-  const newWorld = hashName();
-  if (newWorld !== worldName) {
-    worldName = newWorld;
-    loadGrid(worldName).then(grid => reset(grid));
-  }
-};
-
 window.onresize = () => bpromise.then(bp => {
   bp.resizeTo(window.innerWidth, window.innerHeight);
 });
@@ -172,6 +134,7 @@ stepbutton.onclick = e => bpromise.then(bp => {
   bp.step();
 });
 
+// Tool panel.
 bpromise.then(bp => {
   const panel = document.getElementsByClassName('toolpanel')[0];
 
@@ -196,14 +159,3 @@ bpromise.then(bp => {
   bp.onToolChanged(bp.activeTool);
   modules.load(bp);
 });
-
-// Utility method so I can backup my stuff while I'm programming.
-window.backup = () => {
-  const data = {};
-  for (var i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    const v = JSON.parse(localStorage.getItem(k));
-    data[k] = v;
-  }
-  return data;
-};
