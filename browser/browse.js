@@ -9,7 +9,7 @@ const Browse = React.createClass({
       worlds.push(
         <div key={worldId}>
           <a href={`/world/${worldId}`}>
-            <span>{world.owner}/{world.name || worldId}</span>
+            <span>{worldId}</span>
             {(world.data == null) ?
               <span>EMPTY</span>
             :

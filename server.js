@@ -59,15 +59,23 @@ passport.use(new LocalStrategy((username, password, done) => {
 if (fs.existsSync('github_oauth.json')) {
   passport.use(new GitHubStrategy(require('./github_oauth.json'),
     (accessToken, refreshToken, profile, done) => {
-      const user = {
-        username: `__github_${profile.username}`,
-        source: 'github',
-        accessToken,
-        refreshToken,
-        profile,
-      };
-      db.put(`users/${user.username}`, user, (err) => {
-        done(err, err ? null : user);
+      getUser(profile.username, (err, user) => {
+        if (err) return done(err);
+        if (user && user.source !== 'github') {
+          return done(null, false, {message: 'You have a normal non-oauth account'});
+        }
+
+        user = {
+          // Github users are in the same namespace.
+          username: profile.username,
+          source: 'github',
+          accessToken,
+          refreshToken,
+          profile,
+        };
+        db.put(`users/${user.username}`, user, (err) => {
+          done(err, err ? null : user);
+        });
       });
     }
   ));
@@ -122,58 +130,55 @@ const checkLoggedIn = (req, res, next) => {
 
 // End of login crap
 
-
-// app.get('/me', (req, res) => res.json(req.user));
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/me', (req, res) => res.json(req.user));
+}
 
 app.get('/', (req, res) => {
   res.sendFile(`${__dirname}/public/browse.html`);
 });
 
-app.post('/world', checkLoggedIn, (req, res, next) => {
-  const world = {
-    v: 0,
-    owner: req.user.username,
-    createdAt: +new Date(),
-    data: null
-  }
-  aan().then((worldId) => {
-    db.put(`worlds/${worldId}`, world, (err) => {
-      if (err) return next(err);
-      res.json({id: worldId})
-      res.end()
-    })
-  })
-});
+// Worlds are created on first write by the client. If they're empty they get
+// deleted automatically.
 
-app.put('/world/:id.json', checkLoggedIn, (req, res, next) => {
-  const worldId = req.params.id;
-  if (!req.body.data) return next(new Error('no data'));
-
-  db.get(`worlds/${worldId}`, (err, world) => {
-    if (err) return next(err);
-    if (world.owner !== req.user.username) {
-      return res.sendStatus(403);
+function getWorld(user, key, callback) {
+  db.get(`worlds/${user}/${key}`, (err, world) => {
+    if (err && err.type == 'NotFoundError') {
+      err = null;
+      world = {
+        v: 0,
+        createdAt: Date.now(),
+        data: null,
+      };
     }
+
+    callback(err, world);
+  });
+}
+
+app.put('/world/:user/:key.json', checkLoggedIn, (req, res, next) => {
+  if (req.user.username !== req.params.user) return res.sendStatus(403);
+
+  // if (!req.body.data) return next(new Error('no data'));
+
+  getWorld(req.params.user, req.params.key, (err, world) => {
+    if (err) return next(err);
+    world.modifiedAt = Date.now();
     world.data = req.body.data;
-    if (req.body.name) world.name = req.body.name;
-    world.modifiedAt = +new Date();
-    db.put(
-      `worlds/${worldId}`,
-      world,
-      (err) => {
-        if (err) return next(err)
-        console.log(`saved ${worldId}`);
-        res.end()
-      }
-    )
-  })
+
+    db.put(`worlds/${req.params.user}/${req.params.key}`, world, err => {
+      if (err) return next(err)
+      console.log('saved', req.params);
+      res.end()
+    });
+  });
 });
 
-app.get('/world/:id.json', (req, res, next) => {
-  const worldId = req.params.id;
-  db.get(`worlds/${worldId}`, (err, world) => {
-    if (err) return next(err); // or iuno maybe it's a different error
-    if (world.owner !== req.user.username) {
+app.get('/world/:user/:key.json', (req, res, next) => {
+  getWorld(req.params.user, req.params.key, (err, world) => {
+    if (err) return next(err);
+
+    if (req.params.user !== req.user.username) {
       world.readonly = true;
     }
     res.json(world);
@@ -181,29 +186,23 @@ app.get('/world/:id.json', (req, res, next) => {
   })
 });
 
-app.get('/world/:id', (req, res, next) => {
-  res.sendFile(__dirname + '/public/editor.html', {
-    headers: {
-      'Content-Type': 'text/html'
-    }
-  });
+app.get('/world/:user/:key', (req, res, next) => {
+  res.sendFile(__dirname + '/public/editor.html');
 });
 
 app.get('/worlds', (req, res, next) => {
   const worlds = {};
-  db.createReadStream({gte: 'worlds/', lt: 'worlds0'})
+  db.createReadStream({gte: 'worlds/', lt: 'worlds/~'})
     .on('data', (data) => {
       worlds[data.key.replace(/^worlds\//,'')] = data.value;
+      // console.log(worlds);
     })
-    .on('error', (err) => {
-      next(err)
-    })
+    .on('error', err => next(err))
     .on('end', () => {
       res.json(worlds)
       res.end()
-    })
+    });
 });
-
 
 require('http').createServer(app).listen(4545);
 console.log('listening on 4545');

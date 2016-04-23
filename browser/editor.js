@@ -18,19 +18,18 @@ const stepbutton = document.getElementById('step');
 const worldNameLabel = document.getElementById('worldname');
 
 var worldName = null;
-worldNameLabel.onchange = e => {
-  e.target.blur();
-  worldName = e.target.value;
-  save();
-};
+(() => {
+  const parts = location.pathname.split('/');
+  worldName = `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+  worldNameLabel.textContent = worldName;
+})();
+
 
 const loadGrid = () => {
   // We'll actually just fire a request straight at the same URL as the one
   // we're on.
   const path = location.pathname + '.json';
   console.log("loading from " + path);
-  // worldName = name;
-  // worldLabel.value = worldName;
 
   // Load from either version of data, preferring new if they both exist.
   // We'll only save back to the new data slots in local storage.
@@ -39,14 +38,10 @@ const loadGrid = () => {
     headers: {'Accept': 'application/json'},
     credentials: 'same-origin'
   })
-  .then(res => res.json())
+  .then(res => (res.status === 404) ? {} : res.json())
   .then(grid => {
-    // worldName = grid.name;
-    if (grid.readonly)
+    if (grid && grid.readonly)
       document.getElementById('readonly').style.display = 'inline'
-
-    const parts = location.pathname.split('/');
-    worldNameLabel.value = worldName = grid.name || parts[parts.length - 1];
 
     return db.fromData(grid.data)
   });
@@ -90,14 +85,14 @@ const setRunning = v => {
 setRunning(false);
 
 const saveNow = () => bpromise.then(bp => {
-  console.log('savenow', Date.now());
+  // console.log('savenow', Date.now());
+  // If the world is empty we should probably just delete it.
   return fetch(location.pathname + '.json', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     credentials: 'same-origin',
     body: JSON.stringify({
       data: db.toData(bp.getJSONGrid()),
-      name: worldName
     })
   }).catch(err => console.error(err));
   // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
