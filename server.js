@@ -26,6 +26,10 @@ app.use(session({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 
+// ***** Template junk
+
+app.set('views', './views')
+app.set('view engine', 'ejs')
 
 // ***** Passport login junk.
 
@@ -139,6 +143,10 @@ const checkLoggedIn = (req, res, next) => {
   next();
 };
 
+app.get('/logout', checkLoggedIn, (req, res, next) => {
+  req.logout()
+  res.redirect('/')
+})
 
 // End of login crap
 
@@ -147,7 +155,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 app.get('/', (req, res) => {
-  res.sendFile(`${__dirname}/public/browse.html`);
+  res.render('browse', {user: req.user});
 });
 
 // Worlds are created on first write by the client. If they're empty they get
@@ -210,7 +218,7 @@ app.get('/:user/:key.json', (req, res, next) => {
 });
 
 app.get('/:user/:key', (req, res, next) => {
-  res.sendFile(__dirname + '/public/editor.html');
+  res.render('editor', {user: req.user})
 });
 
 app.get('/worlds', (req, res, next) => {

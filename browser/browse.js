@@ -21,7 +21,10 @@ const Browse = React.createClass({
     }
 
     return <div>
-      <button onClick={this.newWorld}>New world</button>
+      {window.currentUser ?
+        <div><button onClick={this.newWorld}>New world</button>
+        <a href="/logout">Logout</a></div>
+        : <a href="/login">Login</a>}
       {worlds}
     </div>;
   },
