@@ -27,5 +27,8 @@
     "react-dom": "^15.0.1",
     "webpack": "^1.13.0",
     "webpack-glsl-loader": "^1.0.1"
+  },
+  "scripts": {
+    "postinstall": "webpack -p"
   }
 }
