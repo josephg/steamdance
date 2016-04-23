@@ -43,6 +43,18 @@ function getUser(username, callback) {
   });
 }
 
+// Since worlds are just steam.dance/user/world we need to protect some
+// usernames.
+const reserved = ['user', 'users', 'login', 'logout', 'signup', 'signin', 'signout', 'new', 'delete', 'public', 'local', 'me', 'api'];
+const validUsername = name => (
+  name.match(/^[a-zA-Z0-9]{3,}$/) && reserved.indexOf(name) === -1
+)
+
+function setUser(user, callback) {
+  if (!validUsername(user.username)) return callback(Error('invalid name'));
+  db.put(`users/${user.username}`, user, callback);
+}
+
 passport.use(new LocalStrategy((username, password, done) => {
   getUser(username, (err, user) => {
     if (!user) return done(null, false, { message: 'Incorrect username.' });
@@ -73,7 +85,7 @@ if (fs.existsSync('github_oauth.json')) {
           refreshToken,
           profile,
         };
-        db.put(`users/${user.username}`, user, (err) => {
+        setUser(user, (err) => {
           done(err, err ? null : user);
         });
       });
@@ -105,7 +117,7 @@ app.post('/adduser', (req, res, next) => {
         username,
         hash: hash
       };
-      db.put(`users/${username}`, user, (err) => {
+      setUser(user, (err) => {
         if (err) return next(err);
         req.login(user, (err) => {
           if (err) return next(err);
@@ -156,7 +168,7 @@ function getWorld(user, key, callback) {
   });
 }
 
-app.put('/world/:user/:key.json', checkLoggedIn, (req, res, next) => {
+app.put('/:user/:key.json', checkLoggedIn, (req, res, next) => {
   if (req.user.username !== req.params.user) return res.sendStatus(403);
 
   // if (!req.body.data) return next(new Error('no data'));
@@ -174,7 +186,7 @@ app.put('/world/:user/:key.json', checkLoggedIn, (req, res, next) => {
   });
 });
 
-app.get('/world/:user/:key.json', (req, res, next) => {
+app.get('/:user/:key.json', (req, res, next) => {
   getWorld(req.params.user, req.params.key, (err, world) => {
     if (err) return next(err);
 
@@ -186,7 +198,7 @@ app.get('/world/:user/:key.json', (req, res, next) => {
   })
 });
 
-app.get('/world/:user/:key', (req, res, next) => {
+app.get('/:user/:key', (req, res, next) => {
   res.sendFile(__dirname + '/public/editor.html');
 });
 

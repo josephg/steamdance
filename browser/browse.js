@@ -8,7 +8,7 @@ const Browse = React.createClass({
       const world = this.props.worlds[worldId];
       worlds.push(
         <div key={worldId}>
-          <a href={`/world/${worldId}`}>
+          <a href={`/${worldId}`}>
             <span>{worldId}</span>
             {(world.data == null) ?
               <span>EMPTY</span>
@@ -28,7 +28,7 @@ const Browse = React.createClass({
 
   newWorld() {
     fetch("/world", {method: 'POST', credentials: 'same-origin'}).then(res => res.json()).then(world =>
-      location.href = `/world/${world.id}`
+      location.href = `/${world.id}`
     ).catch(e => console.error(e));
   }
 })
