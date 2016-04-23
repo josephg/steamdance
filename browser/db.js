@@ -124,7 +124,6 @@ function JSONToImage(grid) {
   const MAX = Number.MAX_SAFE_INTEGER;
   let l = MAX, r = -MAX, t = MAX, b = -MAX;
   for (let k in grid.base) {
-    const v = grid.base[k];
     const xy = util.parseXY(k), x = xy.x, y = xy.y;
     if (x < l) l = x;
     if (x > r) r = x;

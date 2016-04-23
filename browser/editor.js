@@ -10,11 +10,6 @@ const db = require('./db');
 
 window.util = util;
 
-const isEmpty = (obj) => {
-  for (var k in obj) return false;
-  return true;
-};
-
 // It might be worth moving to some little view library for all this. Maybe?
 const el = document.getElementById('bp');
 
