@@ -2,3 +2,4 @@
 node_modules
 db
 public/*compiled.js
+public/*compiled.js.map
