@@ -201,7 +201,7 @@ app.get('/:user/:key.json', (req, res, next) => {
   getWorld(req.params, (err, world) => {
     if (err) return next(err);
 
-    if (req.params.user !== req.user.username) {
+    if (!req.user || req.params.user !== req.user.username) {
       world.readonly = true;
     }
     res.json(world);
