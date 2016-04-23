@@ -20,7 +20,9 @@ const worldNameLabel = document.getElementById('worldname');
 var worldName = null;
 (() => {
   const parts = location.pathname.split('/');
-  worldName = `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+  const user = decodeURIComponent(parts[parts.length - 2]);
+  const key = decodeURIComponent(parts[parts.length - 1]);
+  worldName = `${user}/${key}`;
   worldNameLabel.textContent = worldName;
 })();
 
@@ -83,22 +85,29 @@ const setRunning = v => {
 
 setRunning(false);
 
+const isEmpty = (obj) => {
+  for (var k in obj) return false;
+  return true;
+};
+
 const saveNow = () => bpromise.then(bp => {
-  // console.log('savenow', Date.now());
-  // If the world is empty we should probably just delete it.
+  const grid = bp.getJSONGrid();
+  const empty = isEmpty(grid.base) && isEmpty(grid.shuttles);
+  if (empty) console.log('removing');
+
   return fetch(location.pathname + '.json', {
-    method: 'PUT',
+    method: empty ? 'DELETE' : 'PUT',
     headers: {'Content-Type': 'application/json'},
     credentials: 'same-origin',
-    body: JSON.stringify({
-      data: db.toData(bp.getJSONGrid()),
+    body: empty ? null : JSON.stringify({
+      data: db.toData(grid),
     })
   }).catch(err => console.error(err));
   // localStorage.setItem("worldv2 " + worldName, db.toString(grid));
 });
 
 const save = (() => {
-  // Rate limit saving to once every 5 seconds at most!
+  // Rate limit saving to once every 5 seconds at most.
   const DELAY = 5000;
   var last = 0, timer = -1;
   return () => {

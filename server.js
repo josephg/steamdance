@@ -153,8 +153,11 @@ app.get('/', (req, res) => {
 // Worlds are created on first write by the client. If they're empty they get
 // deleted automatically.
 
-function getWorld(user, key, callback) {
-  db.get(`worlds/${user}/${key}`, (err, world) => {
+const worldKey = params => `worlds/${params.user}/${params.key}`;
+
+function getWorld(params, callback) {
+  // if (!params.key.match(/^[a-zA-Z0-9 _\-]+$/)) return callback(Error('invalid world name'));
+  db.get(worldKey(params), (err, world) => {
     if (err && err.type == 'NotFoundError') {
       err = null;
       world = {
@@ -173,12 +176,12 @@ app.put('/:user/:key.json', checkLoggedIn, (req, res, next) => {
 
   // if (!req.body.data) return next(new Error('no data'));
 
-  getWorld(req.params.user, req.params.key, (err, world) => {
+  getWorld(req.params, (err, world) => {
     if (err) return next(err);
     world.modifiedAt = Date.now();
     world.data = req.body.data;
 
-    db.put(`worlds/${req.params.user}/${req.params.key}`, world, err => {
+    db.put(worldKey(req.params), world, err => {
       if (err) return next(err)
       console.log('saved', req.params);
       res.end()
@@ -186,8 +189,16 @@ app.put('/:user/:key.json', checkLoggedIn, (req, res, next) => {
   });
 });
 
+app.delete('/:user/:key.json', checkLoggedIn, (req, res, next) => {
+  if (req.user.username !== req.params.user) return res.sendStatus(403);
+  db.del(worldKey(req.params), err => {
+    if (err) return next(err);
+    res.sendStatus(200);
+  });
+});
+
 app.get('/:user/:key.json', (req, res, next) => {
-  getWorld(req.params.user, req.params.key, (err, world) => {
+  getWorld(req.params, (err, world) => {
     if (err) return next(err);
 
     if (req.params.user !== req.user.username) {
