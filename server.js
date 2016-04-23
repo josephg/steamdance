@@ -1,7 +1,9 @@
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
+const GitHubStrategy = require('passport-github2').Strategy;
 const phs = require('password-hash-and-salt');
 
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser')
@@ -23,9 +25,14 @@ app.use(session({
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
+
+
+// ***** Passport login junk.
+
 app.use(passport.initialize());
 app.use(passport.session());
-
+passport.serializeUser((user, done) => done(null, user.username));
+passport.deserializeUser(getUser);
 
 function getUser(username, callback) {
   db.get(`users/${username}`, (err, user) => {
@@ -35,9 +42,6 @@ function getUser(username, callback) {
     callback(err, user);
   });
 }
-
-passport.serializeUser((user, done) => done(null, user.username));
-passport.deserializeUser(getUser);
 
 passport.use(new LocalStrategy((username, password, done) => {
   getUser(username, (err, user) => {
@@ -52,26 +56,35 @@ passport.use(new LocalStrategy((username, password, done) => {
   });
 }));
 
-const checkLoggedIn = (req, res, next) => {
-  if (!req.user) return res.redirect('/login');
-  next();
-};
+if (fs.existsSync('github_oauth.json')) {
+  passport.use(new GitHubStrategy(require('./github_oauth.json'),
+    (accessToken, refreshToken, profile, done) => {
+      const user = {
+        username: `__github_${profile.username}`,
+        source: 'github',
+        accessToken,
+        refreshToken,
+        profile,
+      };
+      db.put(`users/${user.username}`, user, (err) => {
+        done(err, err ? null : user);
+      });
+    }
+  ));
 
+  app.get('/github_oauth', passport.authenticate('github', {})); // no scopes.
 
-
-app.post('/login', passport.authenticate('local', {
-  successRedirect: '/',
-  failureRedirect: '/login',
-}));
-
-app.get('/', checkLoggedIn, (req, res) => {
-  res.redirect('/browse');
-});
+  app.get('/_github_callback', passport.authenticate('github', {
+    failureRedirect: '/login'
+  }), (req, res) => res.redirect('/'));
+} else {
+  console.warn('Could not find github_oauth.json tokens. OAuth login disabled');
+}
 
 app.post('/adduser', (req, res, next) => {
   const username = req.body.username;
   const password = req.body.password;
-  console.log('adduser', req.body);
+  // console.log('adduser', req.body);
   getUser(username, (err, user) => {
     // console.log('user', user);
     if (user) {
@@ -93,6 +106,27 @@ app.post('/adduser', (req, res, next) => {
       });
     });
   });
+});
+
+app.post('/login', passport.authenticate('local', {
+  successRedirect: '/',
+  failureRedirect: '/login',
+}));
+
+const checkLoggedIn = (req, res, next) => {
+  if (!req.isAuthenticated()) return res.redirect('/login');
+  // if (!req.user) return res.redirect('/login');
+  next();
+};
+
+
+// End of login crap
+
+
+// app.get('/me', (req, res) => res.json(req.user));
+
+app.get('/', (req, res) => {
+  res.sendFile(`${__dirname}/public/browse.html`);
 });
 
 app.post('/world', checkLoggedIn, (req, res, next) => {
