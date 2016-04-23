@@ -27,9 +27,7 @@ const Browse = React.createClass({
   },
 
   newWorld() {
-    fetch("/world", {method: 'POST', credentials: 'same-origin'}).then(res => res.json()).then(world =>
-      location.href = `/${world.id}`
-    ).catch(e => console.error(e));
+    location.href = `/new`;
   }
 })
 

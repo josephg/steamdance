@@ -24,7 +24,6 @@ var worldName = null;
   worldNameLabel.textContent = worldName;
 })();
 
-
 const loadGrid = () => {
   // We'll actually just fire a request straight at the same URL as the one
   // we're on.

@@ -216,5 +216,9 @@ app.get('/worlds', (req, res, next) => {
     });
 });
 
+app.get('/new', checkLoggedIn, (req, res) => {
+  aan().then(name => res.redirect(`${req.user.username}/${name}`));
+});
+
 require('http').createServer(app).listen(4545);
 console.log('listening on 4545');
