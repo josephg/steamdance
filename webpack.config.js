@@ -33,6 +33,9 @@ const config = {
     }, {
       test: /\.glsl$/,
       loader: 'webpack-glsl'
+    }, {
+      test: /\.css$/,
+      loaders: ['style', 'css']
     }]
   },
   node: {
@@ -54,4 +57,3 @@ if (env === 'production') {
 //console.log(require('util').inspect(config, {depth:10, color:true}));
 
 module.exports = config;
-

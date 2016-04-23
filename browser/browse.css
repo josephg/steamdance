@@ -1,0 +1,78 @@
+body {
+  margin: 0;
+  font-family: helvetica, arial, sans-serif;
+  background: hsl(0,0%,30%);
+}
+.navbar {
+  background: hsl(0,0%,20%);
+  height: 50px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #eee;
+  padding: 0 20px;
+  box-shadow: 0px 0px 5px hsla(0,0%,0%,0.2);
+}
+.navbar .right * {
+  margin-left: 20px;
+}
+.navbar a {
+  color: white;
+  text-decoration: none;
+}
+.navbar a:hover {
+  text-decoration: underline;
+}
+.navbar .button {
+  background: hsl(0, 0%, 40%);
+  border-radius: 3px;
+  color: white;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-block;
+  outline: 0;
+  padding: 10px 16px;
+  border: 3px solid transparent;
+  cursor: pointer;
+}
+.navbar .button:hover {
+  text-decoration: none;
+  background: hsl(0, 0%, 50%);
+}
+
+.main {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.worlds {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.worlds .world {
+  background: hsl(0, 0%, 40%);
+  padding: 6px;
+  width: 300px;
+  margin: 10px;
+  border-radius: 2px;
+  box-shadow: 0px 0px 8px hsla(0, 0%, 0%, 0.1);
+}
+.worlds .world .details {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: white;
+}
+.worlds .world a {
+  text-decoration: none;
+  color: inherit;
+}
+.worlds .world a:hover {
+  text-decoration: underline;
+}
+.worlds .world.dummy {
+  visibility: hidden;
+}

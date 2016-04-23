@@ -1,36 +1,68 @@
 const React = require('react')
 const ReactDOM = require('react-dom')
 
-const Browse = React.createClass({
+require('./browse.css')
+
+const Navbar = React.createClass({
+  render() {
+    return <div className="navbar">
+      <div className="title">
+        steam.dance
+      </div>
+      <div className="right">
+        <a className="button" href="/new">+ New world</a>
+        {window.currentUser
+          ? <a href="/logout">Log out</a>
+          : <a href="/login">Log in</a>}
+        {!window.currentUser ? <a href="/signup">Sign up</a> : null}
+      </div>
+    </div>
+  },
+
+  newWorld() {
+    location.href = `/new`;
+  }
+})
+
+const Worlds = React.createClass({
   render() {
     const worlds = [];
     for (var worldId in this.props.worlds) {
       const world = this.props.worlds[worldId];
       worlds.push(
-        <div key={worldId}>
+        <div className="world" key={worldId}>
           <a href={`/${worldId}`}>
-            <span>{worldId}</span>
+            <div className="image">
             {(world.data == null) ?
-              <span>EMPTY</span>
+              <div style={{width: 200, height: 200}}></div>
             :
-              <img width='200' height='200' src={world.data.img} />
+              <img width='300' height='200' src={world.data.img} />
             }
+            </div>
           </a>
+          <div className="details">
+            <a href={`/${worldId}`}>{worldId}</a>
+          </div>
         </div>
       );
     }
-
-    return <div>
-      {window.currentUser ?
-        <div><button onClick={this.newWorld}>New world</button>
-        <a href="/logout">Logout</a></div>
-        : <a href="/login">Login</a>}
+    return <div className="worlds">
       {worlds}
-    </div>;
-  },
+      {/* to keep the grid left-aligned, add some dummy elements */}
+      <div className="world dummy"></div>
+      <div className="world dummy"></div>
+    </div>
+  }
+})
 
-  newWorld() {
-    location.href = `/new`;
+const Browse = React.createClass({
+  render() {
+    return <div>
+      <Navbar/>
+      <div className="main">
+        <Worlds worlds={this.props.worlds} />
+      </div>
+    </div>;
   }
 })
 
