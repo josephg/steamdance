@@ -11,7 +11,6 @@ const db = require('./db');
 window.util = util;
 var readonly = false;
 
-
 // It might be worth moving to some little view library for all this. Maybe?
 const el = document.getElementById('bp');
 
@@ -113,8 +112,8 @@ const saveNow = () => bpromise.then(bp => {
 
 const save = (() => {
   if (readonly) return;
-  // Rate limit saving to once every 5 seconds at most.
-  const DELAY = 5000;
+  // Rate limit saving to once every two seconds
+  const DELAY = 2000;
   var last = 0, timer = -1;
   return () => {
     const now = Date.now();
