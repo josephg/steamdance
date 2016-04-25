@@ -60,6 +60,9 @@ body {
   border-radius: 2px;
   box-shadow: 0px 0px 8px hsla(0, 0%, 0%, 0.1);
 }
+.worlds .world.mine {
+  background: hsl(142, 27%, 48%);
+}
 .worlds .world .details {
   white-space: nowrap;
   overflow: hidden;

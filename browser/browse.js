@@ -6,6 +6,8 @@ const SimpleGrid = require('./simplegrid');
 
 require('./browse.css')
 
+const currentUser = window.currentUser;
+
 const Navbar = React.createClass({
   render() {
     return <div className="navbar">
@@ -14,10 +16,10 @@ const Navbar = React.createClass({
       </div>
       <div className="right">
         <a className="button" href="/new">+ New world</a>
-        {window.currentUser
-          ? <a href="/logout">Log out</a>
+        {currentUser
+          ? <a href="/logout">Log out {currentUser}</a>
           : <a href="/login">Log in</a>}
-        {!window.currentUser ? <a href="/signup">Sign up</a> : null}
+        {!currentUser ? <a href="/signup">Sign up</a> : null}
       </div>
     </div>
   },
@@ -43,8 +45,11 @@ const Worlds = React.createClass({
     const worlds = [];
     for (var worldId in this.props.worlds) {
       const world = this.props.worlds[worldId];
+
+      const isMine = worldId.split('/')[0] === currentUser;
+      const classes = isMine ? 'world mine': 'world';
       worlds.push(
-        <div className="world" key={worldId}>
+        <div className={classes} key={worldId}>
           <a href={`/${worldId}`}>
             <div className="image">
               <World data={world.data} width={200} height={200} />
