@@ -1,6 +1,9 @@
 const React = require('react')
 const ReactDOM = require('react-dom')
 
+const db = require('./db');
+const SimpleGrid = require('./simplegrid');
+
 require('./browse.css')
 
 const Navbar = React.createClass({
@@ -24,6 +27,17 @@ const Navbar = React.createClass({
   }
 })
 
+const World = React.createClass({
+  componentDidMount() {
+    db.fromData(this.props.data).then(grid => this.setState({grid}));
+  },
+  render() {
+    const {width, height} = this.props;
+    if (!this.state) return <div style={{width, height}}></div>;
+    return <SimpleGrid width={width} height={height} data={this.state.grid} />
+  }
+});
+
 const Worlds = React.createClass({
   render() {
     const worlds = [];
@@ -33,11 +47,7 @@ const Worlds = React.createClass({
         <div className="world" key={worldId}>
           <a href={`/${worldId}`}>
             <div className="image">
-            {(world.data == null) ?
-              <div style={{width: 200, height: 200}}></div>
-            :
-              <img width='300' height='200' src={world.data.img} />
-            }
+              <World data={world.data} width={200} height={200} />
             </div>
           </a>
           <div className="details">

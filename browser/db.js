@@ -4,7 +4,6 @@ import assert from 'assert';
 export function fromData(grid) {
   if (grid && grid.img) {
     // Its an image!
-    console.log('Woo! Got an image to load!');
     return imageToJSON(grid);
   }
 
