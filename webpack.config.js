@@ -9,6 +9,7 @@ const config = {
   entry: {
     editor: './browser/editor.js',
     browse: './browser/browse.js',
+    import: './browser/import.js',
   },
   output: {
     path: __dirname + '/public',
