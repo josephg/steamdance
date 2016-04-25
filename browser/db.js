@@ -2,12 +2,14 @@ import {util} from 'boilerplate-jit';
 import assert from 'assert';
 
 export function fromData(grid) {
-  if (grid && grid.img) {
+  if (!grid) {
+    return Promise.resolve({base:{}, shuttles:{}});
+  } if (grid.img) {
     // Its an image!
     return imageToJSON(grid);
+  } else {
+    return Promise.resolve(grid);
   }
-
-  return Promise.resolve(grid || {base:{}, shuttles:{}});
 }
 
 export function toData(grid) {
@@ -44,15 +46,9 @@ ITOV[128] = 'thinshuttle';
 
 function normalizeShuttle(sv) {
   return sv == null ? 0 :
-    typeof(sv) === 'string' ? VTOI[sv] :
+    typeof(sv) === 'string' ? (VTOI[sv] | 0b1111) :
     sv;
 }
-
-assert.equal(normalizeShuttle(null), 0);
-assert.equal(normalizeShuttle(undefined), 0);
-assert.equal(normalizeShuttle('shuttle'), 64);
-assert.equal(normalizeShuttle('thinshuttle'), 128);
-assert.equal(normalizeShuttle(128), 128);
 
 function imageToJSON(data) {
   const legacy = require('./db_legacy');
