@@ -9,6 +9,8 @@ const modules = require('./modules');
 const db = require('./db');
 
 window.util = util;
+var readonly = false;
+
 
 // It might be worth moving to some little view library for all this. Maybe?
 const el = document.getElementById('bp');
@@ -41,8 +43,10 @@ const loadGrid = () => {
   })
   .then(res => (res.status === 404) ? {} : res.json())
   .then(grid => {
-    if (grid && grid.readonly)
+    if (grid && grid.readonly) {
       document.getElementById('readonly').style.display = 'inline'
+    }
+    readonly = !!grid.readonly;
 
     return db.fromData(grid.data)
   });
@@ -91,6 +95,7 @@ const isEmpty = (obj) => {
 };
 
 const saveNow = () => bpromise.then(bp => {
+  if (readonly) return;
   const grid = bp.getJSONGrid();
   const empty = isEmpty(grid.base) && isEmpty(grid.shuttles);
   if (empty) console.log('removing');
@@ -107,6 +112,7 @@ const saveNow = () => bpromise.then(bp => {
 });
 
 const save = (() => {
+  if (readonly) return;
   // Rate limit saving to once every 5 seconds at most.
   const DELAY = 5000;
   var last = 0, timer = -1;
