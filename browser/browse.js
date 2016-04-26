@@ -54,7 +54,7 @@ const Worlds = React.createClass({
         <div className={classes} key={worldId}>
           <a href={`/${worldId}`}>
             <div className="image">
-              <World data={world.data} width={200} height={200} />
+              <World data={world.data} width={300} height={200} />
             </div>
           </a>
           <div className="details">

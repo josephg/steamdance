@@ -40,5 +40,5 @@ const renderInto = (width, height, data) => canvas => {
 // the world on a canvas.
 module.exports = ({width, height, data}) => (
   // width={width} height={height}
-  <canvas ref={renderInto(width, height, data)} />
+  <canvas width={width} height={height} ref={renderInto(width, height, data)} />
 );
