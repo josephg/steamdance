@@ -4,10 +4,22 @@ import {util} from 'boilerplate-jit';
 
 const COLORS = require('../lib/colors');
 
-const fl = Math.floor;
-const renderInto = (width, height, data) => canvas => {
-  if (!canvas) return;
+const renderQueue = [];
 
+var renderPending = false;
+const pumpRenderQueue = () => {
+  if (renderPending) return;
+  renderPending = true;
+  setTimeout(() => {
+    renderPending = false;
+    if (renderQueue.length === 0) return;
+    const args = renderQueue.shift();
+    doRender.apply(null, args);
+    setTimeout(pumpRenderQueue, 10);
+  }, 10)
+}
+
+const doRender = (w, h, data, canvas) => {
   const grid = util.deserializeRegion(data);
   const width = canvas.clientWidth, height = canvas.clientHeight;
   // const size = fl(Math.min(width / tw, height / th));
@@ -34,6 +46,13 @@ const renderInto = (width, height, data) => canvas => {
     ctx.fillRect(px, py, size, size);
   });
 
+}
+
+const fl = Math.floor;
+const renderInto = (width, height, data) => canvas => {
+  if (!canvas) return;
+  renderQueue.push([width, height, data, canvas])
+  pumpRenderQueue();
 }
 
 // This isn't interactable or anything. Its just a simple rendered-once grid of
