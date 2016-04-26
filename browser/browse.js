@@ -42,8 +42,10 @@ const World = React.createClass({
 
 const Worlds = React.createClass({
   render() {
+    const worldIds = Object.keys(this.props.worlds)
+    worldIds.sort((a, b) => this.props.worlds[b].modifiedAt - this.props.worlds[a].modifiedAt)
     const worlds = [];
-    for (var worldId in this.props.worlds) {
+    for (var worldId of worldIds) {
       const world = this.props.worlds[worldId];
 
       const isMine = worldId.split('/')[0] === currentUser;
