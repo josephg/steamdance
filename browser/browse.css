@@ -79,3 +79,10 @@ body {
 .worlds .world.dummy {
   visibility: hidden;
 }
+
+.worlds .world canvas {
+  display: block;
+}
+.worlds .world .image {
+  margin-bottom: 3px;
+}

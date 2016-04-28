@@ -42,8 +42,10 @@ const World = React.createClass({
 
 const Worlds = React.createClass({
   render() {
+    const worldIds = Object.keys(this.props.worlds)
+    worldIds.sort((a, b) => this.props.worlds[b].modifiedAt - this.props.worlds[a].modifiedAt)
     const worlds = [];
-    for (var worldId in this.props.worlds) {
+    for (var worldId of worldIds) {
       const world = this.props.worlds[worldId];
 
       const isMine = worldId.split('/')[0] === currentUser;
@@ -52,7 +54,7 @@ const Worlds = React.createClass({
         <div className={classes} key={worldId}>
           <a href={`/${worldId}`}>
             <div className="image">
-              <World data={world.data} width={200} height={200} />
+              <World data={world.data} width={300} height={200} />
             </div>
           </a>
           <div className="details">
