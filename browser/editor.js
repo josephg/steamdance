@@ -46,6 +46,7 @@ const loadGrid = () => {
       document.getElementById('readonly').style.display = 'inline'
     }
     readonly = !!grid.readonly;
+    document.title = `${worldName} - Steamdance`;
 
     return db.fromData(grid.data)
   });
