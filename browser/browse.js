@@ -83,6 +83,7 @@ const Browse = React.createClass({
   }
 })
 
+require('isomorphic-fetch');
 fetch("/worlds").then(res => res.json()).then(worlds => {
   ReactDOM.render(React.createElement(Browse, {worlds}), document.getElementById('root'))
 })

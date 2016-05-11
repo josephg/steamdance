@@ -3,6 +3,8 @@
 // context as well (inside a page element), so code that assumes there's only
 //one bp instance is out here.
 
+require('isomorphic-fetch');
+
 const util = require('boilerplate-jit').util;
 const Boilerplate = require('../lib/boilerplate');
 const modules = require('./modules');
