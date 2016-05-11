@@ -23,7 +23,7 @@
       ref  : "origin/master",
       repo : "https://github.com/josephg/steamdance.git",
       path : "/home/josephg/deploy/steamdance",
-      "post-deploy" : "nvm use 6; npm install && pm2 startOrRestart ecosystem.json --env production"
+      "post-deploy" : "nvm use 6; ln -s /home/josephg/data/steamdance db; npm install && pm2 startOrRestart ecosystem.json --env production"
     }
   }
 }
