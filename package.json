@@ -13,7 +13,7 @@
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-react": "^6.5.0",
     "body-parser": "^1.15.0",
-    "boilerplate-jit": "^2.0.0",
+    "boilerplate-jit": "^2.1.0",
     "coffee-loader": "^0.7.2",
     "css-loader": "^0.23.1",
     "ejs": "^2.4.1",
