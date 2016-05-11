@@ -23,7 +23,10 @@
       ref  : "origin/master",
       repo : "https://github.com/josephg/steamdance.git",
       path : "/home/josephg/deploy/steamdance",
-      "post-deploy" : "source ~/.bashrc && npm install && pm2 startOrRestart ecosystem.json --env production"
+      env: {
+        PATH: "/home/josephg/.nvm/versions/node/v6.1.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      }
+      "post-deploy" : "npm install && pm2 startOrRestart ecosystem.json --env production"
     }
   }
 }
