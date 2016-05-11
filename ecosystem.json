@@ -21,7 +21,7 @@
       user : "josephg",
       host : "steam.dance",
       ref  : "origin/master",
-      repo : "git@github.com:josephg/steamdance.git",
+      repo : "https://github.com/josephg/steamdance.git",
       path : "/home/josephg/deploy/steamdance",
       "post-deploy" : "npm install && pm2 startOrRestart ecosystem.json --env production"
     }
