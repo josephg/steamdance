@@ -51,6 +51,9 @@ if (env === 'production') {
   config.plugins.push(new webpack.optimize.UglifyJsPlugin({
     compress: { warnings: false },
   }));
+  // Should only get downloaded if the devtools are open, and it makes debugging
+  // way easier.
+  config.devtool = 'source-map';
 } else {
   config.devtool = 'cheap-module-source-map';
 }
