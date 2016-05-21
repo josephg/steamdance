@@ -66,6 +66,10 @@ const bpromise = loadGrid().then(grid => {
   el.focus();
   bp.addKeyListener(window);
 
+  if (grid.w && grid.w > 30) { // Start looking at the whole world.
+    bp.view.fit(grid.w, grid.h, grid.offx||0, grid.offy||0);
+  }
+
   return bp;
 });
 

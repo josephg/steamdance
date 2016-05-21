@@ -3,7 +3,7 @@ import assert from 'assert';
 
 export function fromData(grid) {
   if (!grid) {
-    return Promise.resolve({base:{}, shuttles:{}});
+    return Promise.resolve({base:{}, shuttles:{}, offx: 0, offy: 0, w: 0, h:0});
   } if (grid.img) {
     // Its an image!
     return imageToJSON(grid);
@@ -84,7 +84,8 @@ function imageToJSONv2({img, offx, offy}) {
 
       const grid = {
         base: {},
-        shuttles: {}
+        shuttles: {},
+        w, h, offx, offy
       };
 
       for (let i = 0; i < data.length; i += 4) {

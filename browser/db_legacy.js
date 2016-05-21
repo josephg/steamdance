@@ -51,7 +51,8 @@ export function imageToJSONv1({img, offx, offy}) {
 
       const grid = {
         base: {},
-        shuttles: {}
+        shuttles: {},
+        w, h, offx, offy
       };
 
       for (let i = 0; i < data.length; i++) {

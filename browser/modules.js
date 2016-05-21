@@ -1,3 +1,5 @@
+// This manages the stored modules in the dropdown in the top right.
+
 const util = require('boilerplate-jit').util;
 const Boilerplate = require('../lib/boilerplate');
 
