@@ -1,7 +1,7 @@
-import {util} from 'boilerplate-jit';
-import assert from 'assert';
+const {util} = require('boilerplate-jit');
+const assert = require('assert');
 
-export function fromData(grid) {
+exports.fromData = function fromData(grid) {
   if (!grid) {
     return Promise.resolve({base:{}, shuttles:{}, offx: 0, offy: 0, w: 0, h:0});
   } if (grid.img) {
@@ -12,7 +12,7 @@ export function fromData(grid) {
   }
 }
 
-export function toData(grid) {
+exports.toData = function toData(grid) {
   // checkConversion(grid);
 
   const json = JSONToImage(grid);

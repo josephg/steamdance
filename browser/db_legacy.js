@@ -1,4 +1,4 @@
-import assert from 'assert'
+const assert = require('assert');
 
 const VTOI = {};
 const ITOV = [
@@ -30,7 +30,7 @@ function fromByte(b) {
 };
 
 // Version 1 of the imageToJSON function.
-export function imageToJSONv1({img, offx, offy}) {
+exports.imageToJSONv1 = function imageToJSONv1({img, offx, offy}) {
   return new Promise((resolve, reject) => {
     const image = new Image;
     image.src = img;
