@@ -16,6 +16,8 @@ const db = require('level')('db', {
   valueEncoding: 'json'
 });
 
+const stem = process.env.NODE_ENV === 'production' ? '-min' : '';
+
 app.use(express.static(`${__dirname}/public`, {extensions:['html', '']}));
 app.use(session({
   store: new LevelStore(db),
@@ -165,7 +167,7 @@ app.get('/', (req, res) => {
     </script>
     <body>
       <div id=root></div>
-      <script src='browse-compiled.js'></script>
+      <script src='browse-compiled${stem}.js'></script>
     </body>`);
 });
 
@@ -229,7 +231,7 @@ app.get('/:user/:key.json', (req, res, next) => {
 });
 
 app.get('/:user/:key', (req, res, next) => {
-  res.render('editor', {user: req.user})
+  res.end(require('./views/editor')({user: req.user, stem}));
 });
 
 app.get('/worlds', (req, res, next) => {

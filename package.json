@@ -13,7 +13,6 @@
     "boilerplate-jit": "^2.1.0",
     "browserify": "^13.0.1",
     "buble": "^0.11.3",
-    "bubleify": "^0.3.1",
     "express": "^4.13.4",
     "express-session": "^1.13.0",
     "glslify": "^5.0.2",
@@ -28,16 +27,9 @@
     "yo-yoify": "^2.0.1"
   },
   "browserify": {
-    "transform": [
-      "glslify",
-      [
-        "bubleify",
-        {
-          "transforms": {
-            "templateString": false
-          }
-        }
-      ]
-    ]
+    "transform": ["glslify"]
+  },
+  "scripts": {
+    "postinstall": "make all-min"
   }
 }
