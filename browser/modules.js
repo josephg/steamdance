@@ -52,6 +52,8 @@ const save = () => {
 };
 
 const addModule = exports.addModule = (data, bp) => {
+  // Might be worth converting this to yo-yo.
+
   // var canvas, container, ctx, height, moduleElem, rm, size, th, tw, width;
   const container = document.getElementById('moduleList');
   moduleData.push(data);

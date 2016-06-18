@@ -14,7 +14,6 @@
     "browserify": "^13.0.1",
     "buble": "^0.11.3",
     "bubleify": "^0.3.1",
-    "ejs": "^2.4.1",
     "express": "^4.13.4",
     "express-session": "^1.13.0",
     "glslify": "^5.0.2",
@@ -29,6 +28,16 @@
     "yo-yoify": "^2.0.1"
   },
   "browserify": {
-    "transform": ["glslify", "bubleify"]
+    "transform": [
+      "glslify",
+      [
+        "bubleify",
+        {
+          "transforms": {
+            "templateString": false
+          }
+        }
+      ]
+    ]
   }
 }

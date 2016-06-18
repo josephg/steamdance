@@ -1,6 +1,6 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import {util} from 'boilerplate-jit';
+const yo = require('yo-yo');
+const util = require('boilerplate-jit/util');
+const db = require('./db');
 
 const COLORS = require('../lib/colors');
 
@@ -19,9 +19,8 @@ const pumpRenderQueue = () => {
   }, 10)
 }
 
-const doRender = (w, h, data, canvas) => {
+const doRender = (canvas, width, height, data) => {
   const grid = util.deserializeRegion(data);
-  const width = canvas.clientWidth, height = canvas.clientHeight;
   // const size = fl(Math.min(width / tw, height / th));
 
   const {tw, th} = grid;
@@ -36,28 +35,31 @@ const doRender = (w, h, data, canvas) => {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.translate(fl((width - size * tw) / 2), fl((height - size * th) / 2));
 
-  grid.base.forEach((x, y, v) => {
+  grid.base.forEach((x, y, bv) => {
     const px = x * size;
     const py = y * size;
     var sv = grid.shuttles.get(x, y);
     if (sv) sv = util.shuttleStr(sv);
 
-    ctx.fillStyle = COLORS[sv || v];
+    ctx.fillStyle = COLORS[sv || bv];
     ctx.fillRect(px, py, size, size);
   });
 
 }
 
 const fl = Math.floor;
-const renderInto = (width, height, data) => canvas => {
-  if (!canvas) return;
-  renderQueue.push([width, height, data, canvas])
+const renderInto = (canvas, width, height, data) => {
+  // if (!canvas) return;
+  renderQueue.push([canvas, width, height, data])
   pumpRenderQueue();
-}
+};
 
 // This isn't interactable or anything. Its just a simple rendered-once grid of
 // the world on a canvas.
-module.exports = ({width, height, data}) => (
+module.exports = ({width, height, data}) => {
   // width={width} height={height}
-  <canvas width={width} height={height} ref={renderInto(width, height, data)} />
-);
+  const canvas = yo`<canvas />`;
+  db.fromData(data).then(decoded => renderInto(canvas, width, height, decoded));
+  return canvas;
+  // <canvas width={width} height={height} ref={renderInto(width, height, data)} />
+};

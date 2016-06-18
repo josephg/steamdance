@@ -1,5 +1,12 @@
-const {util} = require('boilerplate-jit');
 const assert = require('assert');
+
+const parseXY = k => {
+  const split = k.split(',');
+  const s = {x: split[0] | 0, y: split[1] | 0};
+  console.log('parsexy', k, s);
+  return s;
+};
+
 
 exports.fromData = function fromData(grid) {
   if (!grid) {
@@ -120,7 +127,7 @@ function JSONToImage(grid) {
   const MAX = Number.MAX_SAFE_INTEGER;
   let l = MAX, r = -MAX, t = MAX, b = -MAX;
   for (let k in grid.base) {
-    const xy = util.parseXY(k), x = xy.x, y = xy.y;
+    const xy = parseXY(k), x = xy.x, y = xy.y;
     if (x < l) l = x;
     if (x > r) r = x;
     if (y < t) t = y;
@@ -145,7 +152,7 @@ function JSONToImage(grid) {
     const v = grid.base[k];
     const sv = grid.shuttles[k];
 
-    const xy = util.parseXY(k)
+    const xy = parseXY(k)
     const x = xy.x - l, y = xy.y - t;
 
     const offs = (x + y * w) * 4

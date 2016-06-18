@@ -1,89 +1,58 @@
-const React = require('react')
-const ReactDOM = require('react-dom')
-
-const db = require('./db');
+const yo = require('yo-yo');
 const SimpleGrid = require('./simplegrid');
-
-require('./browse.css')
 
 const currentUser = window.currentUser;
 
-const Navbar = React.createClass({
-  render() {
-    return <div className="navbar">
-      <div className="title">
-        steam.dance
-      </div>
-      <div className="right">
-        <a className="button" href="/new">+ New world</a>
-        {currentUser
-          ? <a href="/logout">Log out {currentUser}</a>
-          : <a href="/login">Log in</a>}
-        {!currentUser ? <a href="/signup">Sign up</a> : null}
-      </div>
+const Navbar = () => yo`
+  <div className="navbar">
+    <div className="title">
+      steam.dance
     </div>
-  },
+    <div className="right">
+      <a className="button" href="/new">+ New world</a>
+      ${currentUser
+        ? yo`<a href="/logout">Log out ${currentUser}</a>`
+        : yo`<a href="/login">Log in</a>`}
+      ${!currentUser ? yo`<a href="/signup">Sign up</a>` : null}
+    </div>
+  </div>`;
 
-  newWorld() {
-    location.href = `/new`;
-  }
-})
-
-const World = React.createClass({
-  componentDidMount() {
-    db.fromData(this.props.data).then(grid => this.setState({grid}));
-  },
-  render() {
-    const {width, height} = this.props;
-    if (!this.state) return <div style={{width, height}}></div>;
-    return <SimpleGrid width={width} height={height} data={this.state.grid} />
-  }
-});
-
-const Worlds = React.createClass({
-  render() {
-    const worldIds = Object.keys(this.props.worlds)
-    worldIds.sort((a, b) => this.props.worlds[b].modifiedAt - this.props.worlds[a].modifiedAt)
-    const worlds = [];
-    for (var worldId of worldIds) {
-      const world = this.props.worlds[worldId];
-
-      const isMine = worldId.split('/')[0] === currentUser;
+const Worlds = (worlds) => yo`
+  <div className="worlds">
+    ${Object.keys(worlds)
+    .sort((a, b) => worlds[b].modifiedAt - worlds[a].modifiedAt)
+    // .filter(key => key === 'josephg/test3')
+    .map(id => {
+      const isMine = id.split('/')[0] === currentUser;
       const classes = isMine ? 'world mine': 'world';
-      worlds.push(
-        <div className={classes} key={worldId}>
-          <a href={`/${worldId}`}>
+      return yo`
+        <div className=${classes} key=${id}>
+          <a href=/${id}>
             <div className="image">
-              <World data={world.data} width={300} height={200} />
+              ${SimpleGrid({data: worlds[id].data, width: 300, height: 200})}
             </div>
           </a>
           <div className="details">
-            <a href={`/${worldId}`}>{worldId}</a>
+            <a href=/${id}>${id}</a>
           </div>
         </div>
-      );
-    }
-    return <div className="worlds">
-      {worlds}
-      {/* to keep the grid left-aligned, add some dummy elements */}
-      <div className="world dummy"></div>
-      <div className="world dummy"></div>
+      `;
+    })}
+    <div className="world dummy"></div>
+    <div className="world dummy"></div>
+  </div>`; // to keep the grid left-aligned, add some dummy elements
+
+const Browse = (worlds) => yo`
+  <div>
+    ${Navbar()}
+    <div className="main">
+      ${Worlds(worlds)}
     </div>
-  }
-})
+  </div>`;
 
-const Browse = React.createClass({
-  render() {
-    return <div>
-      <Navbar/>
-      <div className="main">
-        <Worlds worlds={this.props.worlds} />
-      </div>
-    </div>;
-  }
-})
-
+// http://caniuse.com/#search=fetch
+// Waiting for edge 14 and safari 10.
 require('isomorphic-fetch');
 fetch("/worlds").then(res => res.json()).then(worlds => {
-  ReactDOM.render(React.createElement(Browse, {worlds}), document.getElementById('root'))
-})
+  yo.update(document.getElementById('root'), Browse(worlds));
+});

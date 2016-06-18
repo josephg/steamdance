@@ -155,7 +155,18 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 app.get('/', (req, res) => {
-  res.render('browse', {user: req.user});
+  res.end(`<!DOCTYPE html>
+    <title>Steamdance</title>
+    <meta charset="utf-8">
+    <link href='browse.css' rel='stylesheet' type='text/css'>
+    <link href='icon.png' rel='icon' type='image/png'>
+    <script>
+      window.currentUser = ${JSON.stringify(req.user ? req.user.username : null)};
+    </script>
+    <body>
+      <div id=root></div>
+      <script src='browse-compiled.js'></script>
+    </body>`);
 });
 
 // Worlds are created on first write by the client. If they're empty they get
