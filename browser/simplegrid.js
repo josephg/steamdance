@@ -1,10 +1,13 @@
 const yo = require('yo-yo');
 const util = require('boilerplate-jit/util');
 const db = require('./db');
+const {shuttleConnects} = require('../lib/util');
 
 const COLORS = require('../lib/colors');
 
 const renderQueue = [];
+
+const UP=0, RIGHT=1, DOWN=2, LEFT=3;
 
 var renderPending = false;
 const pumpRenderQueue = () => {
@@ -36,13 +39,26 @@ const doRender = (canvas, width, height, data) => {
   ctx.translate(fl((width - size * tw) / 2), fl((height - size * th) / 2));
 
   grid.base.forEach((x, y, bv) => {
-    const px = x * size;
-    const py = y * size;
-    var sv = grid.shuttles.get(x, y);
-    if (sv) sv = util.shuttleStr(sv);
+    let px = x * size;
+    let py = y * size;
+    let sv = grid.shuttles.get(x, y);
 
-    ctx.fillStyle = COLORS[sv || bv];
+    ctx.fillStyle = COLORS[bv];
     ctx.fillRect(px, py, size, size);
+
+    if (sv) {
+      const svStr = util.shuttleStr(sv);
+      ctx.fillStyle = COLORS[svStr];
+      let l=px, t=py, r=px+size, b=py+size;
+      if (typeof sv === 'number' && size > 3) {
+        const amt = svStr === 'shuttle' ? 1 : (size/4)|0;
+        if (!shuttleConnects(sv, LEFT)) l += amt;
+        if (!shuttleConnects(sv, RIGHT)) r -= amt;
+        if (!shuttleConnects(sv, UP)) t += amt;
+        if (!shuttleConnects(sv, DOWN)) b -= amt;
+      }
+      ctx.fillRect(l, t, r-l, b-t);
+    }
   });
 
 }

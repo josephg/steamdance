@@ -146,7 +146,7 @@ const checkLoggedIn = (req, res, next) => {
 app.get('/logout', checkLoggedIn, (req, res, next) => {
   req.logout()
   res.redirect('/')
-})
+});
 
 // End of login crap
 
