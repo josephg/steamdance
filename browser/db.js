@@ -2,11 +2,8 @@ const assert = require('assert');
 
 const parseXY = k => {
   const split = k.split(',');
-  const s = {x: split[0] | 0, y: split[1] | 0};
-  console.log('parsexy', k, s);
-  return s;
+  return {x: split[0] | 0, y: split[1] | 0};
 };
-
 
 exports.fromData = function fromData(grid) {
   if (!grid) {
