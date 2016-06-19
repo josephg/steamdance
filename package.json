@@ -30,6 +30,6 @@
     "transform": ["glslify"]
   },
   "scripts": {
-    "postinstall": "make all-min"
+    "postinstall": "make clean all-min"
   }
 }
