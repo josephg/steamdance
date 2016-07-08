@@ -22,6 +22,7 @@ const pumpRenderQueue = () => {
   }, 10)
 }
 
+const fl = Math.floor;
 const doRender = (canvas, width, height, data) => {
   const grid = util.deserializeRegion(data);
   // const size = fl(Math.min(width / tw, height / th));
@@ -60,10 +61,8 @@ const doRender = (canvas, width, height, data) => {
       ctx.fillRect(l, t, r-l, b-t);
     }
   });
-
 }
 
-const fl = Math.floor;
 const renderInto = (canvas, width, height, data) => {
   // if (!canvas) return;
   renderQueue.push([canvas, width, height, data])
