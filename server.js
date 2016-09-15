@@ -74,8 +74,9 @@ passport.use(new LocalStrategy((username, password, done) => {
   });
 }));
 
-if (fs.existsSync('github_oauth.json')) {
-  passport.use(new GitHubStrategy(require('./github_oauth.json'),
+try {
+  const github_config = require(process.env.GITHUB_CONFIG_PATH || './github_oauth.json');
+  passport.use(new GitHubStrategy(github_config,
     (accessToken, refreshToken, profile, done) => {
       getUser(profile.username, (err, user) => {
         if (err) return done(err);
@@ -103,8 +104,10 @@ if (fs.existsSync('github_oauth.json')) {
   app.get('/_github_callback', passport.authenticate('github', {
     failureRedirect: '/login'
   }), (req, res) => res.redirect('/'));
-} else {
-  console.warn('Could not find github_oauth.json tokens. OAuth login disabled');
+} catch (e) {
+  if (e.code === 'MODULE_NOT_FOUND')
+    console.warn('Could not find github_oauth.json tokens. OAuth login disabled');
+  else throw e;
 }
 
 app.post('/adduser', (req, res, next) => {
