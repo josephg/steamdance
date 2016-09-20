@@ -10,7 +10,7 @@
   "dependencies": {
     "adjective-adjective-animal": "^1.3.3",
     "body-parser": "^1.15.0",
-    "boilerplate-jit": "^2.1.0",
+    "boilerplate-jit": "^3.0.1",
     "browserify": "^13.0.1",
     "buble": "^0.11.3",
     "express": "^4.13.4",
