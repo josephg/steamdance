@@ -93,7 +93,8 @@ const setRunning = v => {
   }
 };
 
-setRunning(false);
+const autoplay = window.location.hash === '#play'
+setRunning(autoplay);
 
 const isEmpty = (obj) => {
   for (var k in obj) return false;
