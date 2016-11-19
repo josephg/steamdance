@@ -31,5 +31,8 @@
   },
   "scripts": {
     "postinstall": "make clean all-min"
+  },
+  "devDependencies": {
+    "uglify-js": "^2.7.4"
   }
 }
