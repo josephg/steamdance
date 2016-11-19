@@ -178,7 +178,7 @@ a:after {
 
 <div class='overlay topleft'>
   <a href='/'>&#9664;Browse</a>
-  <span id='readonly'>READONLY</span>
+  <span id='readonly'>CHANGES WILL NOT BE SAVED</span>
   <span id='worldname'></span>
   <div id='playpanel'>
     <span id="playpause" title="play (space bar)">►</span>
