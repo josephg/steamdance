@@ -33,10 +33,10 @@ const doRender = (canvas, width, height, data) => {
   canvas.height = height * devicePixelRatio;
 
   const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
 
   ctx.fillStyle = COLORS.solid;
   ctx.fillRect(0, 0, width, height);
-  ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.translate(fl((width - size * tw) / 2), fl((height - size * th) / 2));
 
   grid.base.forEach((x, y, bv) => {
@@ -73,7 +73,8 @@ const renderInto = (canvas, width, height, data) => {
 // the world on a canvas.
 module.exports = ({width, height, data}) => {
   // width={width} height={height}
-  const canvas = yo`<canvas />`;
+  const style = `width: ${width}px; height: ${height}px;`;
+  const canvas = yo`<canvas style="${style}" />`;
   db.fromData(data).then(decoded => renderInto(canvas, width, height, decoded));
   return canvas;
   // <canvas width={width} height={height} ref={renderInto(width, height, data)} />
