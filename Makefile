@@ -12,4 +12,4 @@ public/%-compiled.js: browser/%.js lib/*.js
 	browserify -i chalk -p yo-yoify $< -o $@
 
 public/%-compiled-min.js: browser/%.js lib/*.js
-	browserify -i chalk -p yo-yoify $< | buble | uglifyjs -cm > $@
+	browserify -i chalk -t unassertify -g yo-yoify -g uglifyify $< -o $@
