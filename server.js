@@ -21,7 +21,7 @@ const stem = process.env.NODE_ENV === 'production' ? '-min' : '';
 app.use(express.static(`${__dirname}/public`, {extensions:['html', '']}));
 app.use(session({
   store: new LevelStore(db),
-  secret: 'M2F6AquzZFtrLys6oCloBOFWPc/K',
+  secret: process.env.SESSION_SECRET || 'M2F6AquzZFtrLys6oCloBOFWPc/K',
   resave: false,
   saveUninitialized: false
 }));
