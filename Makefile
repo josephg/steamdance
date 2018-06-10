@@ -9,7 +9,7 @@ clean:
 	rm -f public/*compiled*
 
 public/%-compiled.js: browser/%.js lib/*.js
-	browserify -i chalk -p yo-yoify $< -o $@
+	npx browserify -i chalk -p yo-yoify $< -o $@
 
 public/%-compiled-min.js: browser/%.js lib/*.js
-	browserify -i chalk -t unassertify -g yo-yoify -g uglifyify $< -o $@
+	npx browserify -i chalk -t unassertify -g yo-yoify -g uglifyify $< -o $@

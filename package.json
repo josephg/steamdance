@@ -18,7 +18,7 @@
     "isomorphic-fetch": "^2.2.1",
     "level": "^4.0.0",
     "level-session-store": "^2.0.1",
-    "passport": "^0.3.2",
+    "passport": "^0.4.0",
     "passport-github2": "^0.1.10",
     "passport-local": "^1.0.0",
     "password-hash-and-salt": "^0.1.3",
