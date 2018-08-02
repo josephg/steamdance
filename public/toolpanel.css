@@ -58,11 +58,17 @@
 }
 
 .toolpanel > #move { color: black; background-color: hsl(44, 87%, 52%); }
+
 .toolpanel > #nothing { color: black; background-color: white; }
+.toolpanel > #thinsolid { color: black; background-color: hsl(0, 0%, 71%); }
 .toolpanel > #solid { background-color: hsl(184, 49%, 7%); }
+.toolpanel > #bridge { background-color: hsl(208, 78%, 47%); }
+
 .toolpanel > #positive { background-color: #5ECC5E; }
 .toolpanel > #negative { background-color: #D65A2B; }
+
 .toolpanel > #shuttle { background-color: #9429BF; }
 .toolpanel > #thinshuttle { color: black; background-color: hsl(283, 89%, 75%); }
-.toolpanel > #thinsolid { color: black; background-color: hsl(0, 0%, 71%); }
-.toolpanel > #bridge { background-color: hsl(208, 78%, 47%); }
+
+.toolpanel > #glue { background-color: #af8145; }
+.toolpanel > #cut { color: black; background-color: #d2c1ac; }

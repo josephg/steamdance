@@ -205,13 +205,15 @@ a:after {
   </div><div id="thinsolid">grill
   </div><div id="solid">Solid
 
+  </div><div id="bridge">bridge
+
   </div><div id="positive">pos
   </div><div id="negative">neg
 
   </div><div id="shuttle">shuttle
   </div><div id="thinshuttle">ts
-
-  </div><div id="bridge">bridge
+  </div><div id="glue">S Glue
+  </div><div id="cut">S Cut ✂
   </div>
 </div>
 
